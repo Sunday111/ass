@@ -1,0 +1,22 @@
+BasedOnStyle: Google
+BreakBeforeBraces: Allman
+IndentWidth: 4
+ContinuationIndentWidth: 4
+UseTab: Never
+
+IndentCaseLabels: false
+AccessModifierOffset: -4
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+ColumnLimit: 120
+AlignAfterOpenBracket: AlwaysBreak
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: false
+AllowAllConstructorInitializersOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortLambdasOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+FixNamespaceComments: true

@@ -1,0 +1,10 @@
+Checks: "-cppcoreguidelines-avoid-magic-numbers,\
+-modernize-use-trailing-return-type,\
+-cppcoreguidelines-avoid-non-const-global-variables,\
+-cppcoreguidelines-owning-memory,\
+-cert-err58-cpp,\
+"
+WarningsAsErrors: '*'
+# Use clang-format
+FormatStyle: file
+InheritParentConfig: true

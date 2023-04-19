@@ -1,0 +1,16 @@
+Checks: "-*,\
+google-*,\
+performance-*,\
+portability-*,\
+cert-*,\
+clang-analyzer-*,\
+cppcoreguidelines-*,\
+modernize-*\
+-modernize-use-trailing-return-type,\
+-cppcoreguidelines-non-private-member-variables-in-classes,\
+-cppcoreguidelines-pro-bounds-array-to-pointer-decay,\
+-cppcoreguidelines-pro-bounds-constant-array-index\
+"
+WarningsAsErrors: '*'
+# Use clang-format
+FormatStyle: file
