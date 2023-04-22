@@ -1,3 +1,4 @@
+#include <array>
 #include <climits>
 #include <limits>
 #include <type_traits>
@@ -210,4 +211,69 @@ static constexpr bool ConstexprTest()
     return true;
 }
 
+static constexpr bool ConstexprIteratorTest()
+{
+    constexpr size_t Capacity = 10;
+
+    auto make_key = TrivialKeyValueTraits::MakeKey;
+    auto make_value = TrivialKeyValueTraits::MakeValue;
+    using Key = decltype(make_key(0));
+    using Value = decltype(make_value(0));
+
+    using Converted = std::array<std::pair<Key, Value>, Capacity>;
+    using Map = ass::FixedUnorderedMap<Capacity, int, int, ConstexprHasher>;
+
+    auto convert = [](auto& map) -> std::pair<Converted, size_t>
+    {
+        Converted r{};
+        size_t index = 0;
+        for (auto kv : map)
+        {
+            r[index].first = kv.key;
+            r[index].second = kv.value;
+            ++index;
+        }
+        return {r, index};
+    };
+    auto converted_has_kv = [](const Converted& map, const Key key, const Value value, size_t count) -> bool
+    {
+        for (size_t index = 0; index != count; ++index)
+        {
+            auto& [existing_key, existing_value] = map[index];
+            if (key == existing_key)
+            {
+                return value == existing_value;
+            }
+        }
+        return false;
+    };
+
+    Map map{};
+    for (int i = 0; i != Capacity; ++i)
+    {
+        map.Add(make_key(i), make_value(i));
+
+        auto [converted, count] = convert(map);
+        if (static_cast<int>(count) != i + 1) return false;
+
+        for (int j = 0; j <= i; ++j)
+        {
+            const Key key = make_key(j);
+            const Value value = make_value(j);
+            if (!converted_has_kv(converted, key, value, count))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 static_assert(ConstexprTest());
+// static_assert(ConstexprIteratorTest());
+
+TEST(FixedUnorderedMapConstexpr, Iterator)
+{
+    ASSERT_TRUE(ConstexprIteratorTest());
+}

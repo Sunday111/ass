@@ -9,7 +9,9 @@ modernize-*\
 -modernize-use-trailing-return-type,\
 -cppcoreguidelines-non-private-member-variables-in-classes,\
 -cppcoreguidelines-pro-bounds-array-to-pointer-decay,\
--cppcoreguidelines-pro-bounds-constant-array-index\
+-cppcoreguidelines-pro-bounds-constant-array-index,\
+-google-explicit-constructor,\
+-cppcoreguidelines-macro-usage\
 "
 WarningsAsErrors: '*'
 # Use clang-format
