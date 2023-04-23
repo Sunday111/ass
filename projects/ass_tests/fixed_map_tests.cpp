@@ -27,7 +27,8 @@ struct TrivialKeyValueTraits
 template <typename T>
 struct NonTrivialInteger
 {
-    constexpr explicit NonTrivialInteger(int x = 0) : value(x) {}
+    constexpr NonTrivialInteger() = default;
+    constexpr explicit NonTrivialInteger(int x) : value(x) {}
     constexpr NonTrivialInteger(NonTrivialInteger&&) noexcept = default;
     constexpr NonTrivialInteger(const NonTrivialInteger&) = default;
     constexpr NonTrivialInteger& operator=(const NonTrivialInteger&) = default;
@@ -161,6 +162,62 @@ TYPED_TEST(FixedUnorderedMapTest, Full)
     }
 }
 
+TYPED_TEST(FixedUnorderedMapTest, Iteration)
+{
+    constexpr size_t Capacity = 10;
+
+    using Self = typename std::decay_t<decltype(*this)>::Self;
+    using Key = typename Self::Key;
+    using Value = typename Self::Value;
+    using Hasher = typename Self::Hasher;
+    auto make_key = Self::MakeKey;
+    auto make_value = Self::MakeValue;
+
+    using Converted = std::array<std::pair<Key, Value>, Capacity>;
+    using Map = ass::FixedUnorderedMap<Capacity, Key, Value, Hasher>;
+
+    auto convert = [](auto& map) -> std::pair<Converted, size_t>
+    {
+        Converted r{};
+        size_t index = 0;
+        for (auto kv : map)
+        {
+            r[index].first = kv.key;
+            r[index].second = kv.value;
+            ++index;
+        }
+        return {r, index};
+    };
+    auto converted_has_kv = [](const Converted& map, const Key key, const Value value, size_t count) -> bool
+    {
+        for (size_t index = 0; index != count; ++index)
+        {
+            auto& [existing_key, existing_value] = map[index];
+            if (key == existing_key)
+            {
+                return value == existing_value;
+            }
+        }
+        return false;
+    };
+
+    Map map{};
+    for (int i = 0; i != Capacity; ++i)
+    {
+        map.Add(make_key(i), make_value(i));
+
+        auto [converted, count] = convert(map);
+        ASSERT_EQ(static_cast<int>(count), i + 1);
+
+        for (int j = 0; j <= i; ++j)
+        {
+            const Key key = make_key(j);
+            const Value value = make_value(j);
+            ASSERT_TRUE(converted_has_kv(converted, key, value, count)) << "i = " << i << ", j = " << j;
+        }
+    }
+}
+
 static constexpr bool ConstexprTest()
 {
     constexpr size_t Capacity = 10;
@@ -271,9 +328,9 @@ static constexpr bool ConstexprIteratorTest()
 }
 
 static_assert(ConstexprTest());
-// static_assert(ConstexprIteratorTest());
+static_assert(ConstexprIteratorTest());
 
-TEST(FixedUnorderedMapConstexpr, Iterator)
-{
-    ASSERT_TRUE(ConstexprIteratorTest());
-}
+// TEST(FixedUnorderedMapConstexpr, Iterator)
+// {
+//     ASSERT_TRUE(ConstexprIteratorTest());
+// }

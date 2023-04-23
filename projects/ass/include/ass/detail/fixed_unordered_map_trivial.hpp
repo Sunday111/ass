@@ -134,14 +134,7 @@ protected:
     template <typename It, typename This>
     static constexpr It MakeBegin(This this_) noexcept
     {
-        if (this_->HasValueAtIndex(0))
-        {
-            return It(*this_, 0);
-        }
-        else
-        {
-            return It(*this_, this_->GetNextIndexWithValue(0));
-        }
+        return It(*this_, this_->GetFirstIndexWithValue());
     }
 
     template <typename It, typename This>
@@ -187,20 +180,15 @@ protected:
         return false;
     }
 
+    constexpr size_t GetFirstIndexWithValue() const noexcept
+    {
+        return has_index_.CountContinuousZeroBits();
+    }
+
     constexpr size_t GetNextIndexWithValue(size_t prev_index) const noexcept
     {
         assert(prev_index <= Capacity);
-        size_t index = prev_index;
-        while (index != Capacity)
-        {
-            ++index;
-            if (index == Capacity || has_index_.Get(index))
-            {
-                break;
-            }
-        }
-
-        return index;
+        return has_index_.CountContinuousZeroBits(prev_index + 1);
     }
 
     constexpr const Key& GetKeyAt(size_t index) const noexcept

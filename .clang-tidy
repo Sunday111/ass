@@ -11,7 +11,8 @@ modernize-*\
 -cppcoreguidelines-pro-bounds-array-to-pointer-decay,\
 -cppcoreguidelines-pro-bounds-constant-array-index,\
 -google-explicit-constructor,\
--cppcoreguidelines-macro-usage\
+-cppcoreguidelines-macro-usage,\
+-cppcoreguidelines-pro-type-reinterpret-cast,\
 "
 WarningsAsErrors: '*'
 # Use clang-format

@@ -3,6 +3,8 @@ Checks: "-cppcoreguidelines-avoid-magic-numbers,\
 -cppcoreguidelines-avoid-non-const-global-variables,\
 -cppcoreguidelines-owning-memory,\
 -cert-err58-cpp,\
+-cert-msc32-c,\
+-cert-msc51-cpp,\
 "
 WarningsAsErrors: '*'
 # Use clang-format

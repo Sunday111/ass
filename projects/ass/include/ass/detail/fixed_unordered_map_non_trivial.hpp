@@ -9,36 +9,141 @@
 namespace ass::fixed_unordered_map_detail
 {
 
-template <size_t Capacity, typename Key, typename Value, typename Hasher>
+template <size_t Capacity, typename Key_, typename Value_, typename Hasher_>
 class FixedMapNonTriviallyDestructible
 {
 public:
+    using Key = Key_;
+    using Value = Value_;
+    using Hasher = Hasher_;
     using Self = FixedMapNonTriviallyDestructible<Capacity, Key, Value, Hasher>;
     using Iterator = FixedMapIteratorNonTrivial<Self>;
     using ConstIterator = FixedMapIteratorNonTrivial<std::add_const_t<Self>>;
     friend Iterator;
     friend ConstIterator;
 
-    constexpr FixedMapNonTriviallyDestructible() = default;
+    FixedMapNonTriviallyDestructible() = default;
+    FixedMapNonTriviallyDestructible(const FixedMapNonTriviallyDestructible& another)
+    {
+        for (size_t index = 0; index != Capacity; ++index)
+        {
+            if (another.has_index_.Get(index))
+            {
+                has_index_.Set(index, true);
+                new (&GetKeyAt(index)) Key(another.GetKeyAt(index));
+                new (&GetValueAt(index)) Value(another.GetValueAt(index));
+            }
+        }
+    }
+    FixedMapNonTriviallyDestructible(FixedMapNonTriviallyDestructible&& another) noexcept
+    {
+        for (size_t index = 0; index != Capacity; ++index)
+        {
+            if (another.has_index_.Get(index))
+            {
+                has_index_.Set(index, true);
+                new (&GetKeyAt(index)) Key(std::move(another.GetKeyAt(index)));
+                new (&GetValueAt(index)) Value(std::move(another.GetValueAt(index)));
+            }
+        }
+    }
+    ~FixedMapNonTriviallyDestructible()
+    {
+        if constexpr (Capacity != 0)
+        {
+            size_t index = GetFirstIndexWithValue();
+
+            while (HasValueAtIndex(index))
+            {
+                EraseIndex(index);
+                index = GetNextIndexWithValue(index);
+            }
+        }
+    }
+
+    FixedMapNonTriviallyDestructible& operator=(const FixedMapNonTriviallyDestructible& another)
+    {
+        if (this == &another)
+        {
+            return *this;
+        }
+
+        for (size_t index = 0; index != Capacity; ++index)
+        {
+            const bool this_has_index = has_index_.Get(index);
+
+            if (another.has_index_.Get(index))
+            {
+                if (this_has_index)
+                {
+                    GetKeyAt(index) = another.GetKeyAt(index);
+                    GetValueAt(index) = another.GetValueAt(index);
+                }
+                else
+                {
+                    has_index_.Set(index, true);
+                    new (&GetKeyAt(index)) Key(another.GetKeyAt(index));
+                    new (&GetValueAt(index)) Value(another.GetValueAt(index));
+                }
+            }
+            else if (this_has_index)
+            {
+                EraseIndex(index);
+            }
+        }
+        return *this;
+    }
+    FixedMapNonTriviallyDestructible& operator=(FixedMapNonTriviallyDestructible&& another) noexcept
+    {
+        if (this == &another)
+        {
+            return *this;
+        }
+
+        for (size_t index = 0; index != Capacity; ++index)
+        {
+            const bool this_has_index = has_index_.Get(index);
+
+            if (another.has_index_.Get(index))
+            {
+                if (this_has_index)
+                {
+                    GetKeyAt(index) = std::move(another.GetKeyAt(index));
+                    GetValueAt(index) = std::move(another.GetValueAt(index));
+                }
+                else
+                {
+                    has_index_.Set(index, true);
+                    new (&GetKeyAt(index)) Key(std::move(another.GetKeyAt(index)));
+                    new (&GetValueAt(index)) Value(std::move(another.GetValueAt(index)));
+                }
+            }
+            else if (this_has_index)
+            {
+                EraseIndex(index);
+            }
+        }
+        return *this;
+    }
 
     constexpr bool Contains(const Key key) const
     {
         const size_t index = FindIndexForKey(key);
-        return index != Capacity && elements_[index].has_value();
+        return HasValueAtIndex(index);
     }
 
     Value& Get(const Key key)
     {
         const size_t index = FindIndexForKey(key);
-        assert(index != Capacity && elements_[index].has_value());
-        return elements_[index]->second;
+        assert(HasValueAtIndex(index));
+        return GetValueAt(index);
     }
 
     const Value& Get(const Key key) const
     {
         const size_t index = FindIndexForKey(key);
-        assert(index != Capacity && elements_[index].has_value());
-        return elements_[index]->second;
+        assert(HasValueAtIndex(key));
+        return GetValueAt(index);
     }
 
     Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
@@ -49,29 +154,30 @@ public:
             return nullptr;
         }
 
-        auto& maybe_kv = elements_[index];
-        if (maybe_kv.has_value())
+        Value& value_ref = GetValueAt(index);
+        if (has_index_.Get(index))
         {
             if (value != std::nullopt)
             {
-                maybe_kv->second = std::move(*value);
+                value_ref = std::move(*value);
             }
         }
         else
         {
+            has_index_.Set(index, true);
+            Key& key_ref = GetKeyAt(index);
+            new (&key_ref) Key(key);
             if (value == std::nullopt)
             {
-                maybe_kv = std::pair<Key, Value>{key, Value{}};
+                new (&value_ref) Value();
             }
             else
             {
-                maybe_kv = std::pair<Key, Value>{key, std::move(*value)};
+                new (&value_ref) Value(std::move(*value));
             }
-
-            size_ += 1;
         }
 
-        return &maybe_kv->second;
+        return &value_ref;
     }
 
     Value& Add(const Key key, Value value = {})
@@ -83,27 +189,19 @@ public:
 
     std::optional<Value> Remove(const Key key)
     {
-        const size_t index = FindIndexForKey(key);
-        if (index == Capacity)
+        if (const size_t index = FindIndexForKey(key); HasValueAtIndex(index))
         {
-            return std::nullopt;
-        }
-
-        auto& maybe_kv = elements_[index];
-        if (maybe_kv.has_value())
-        {
-            size_ -= 1;
-            std::optional<std::pair<Key, Value>> prev;
-            std::swap(prev, maybe_kv);
-            return prev->second;
+            std::optional<Value> moved = std::move(GetValueAt(index));
+            EraseIndex(index);
+            return moved;
         }
 
         return std::nullopt;
     }
 
-    size_t Size() const
+    constexpr size_t Size() const
     {
-        return size_;
+        return has_index_.CountOnes();
     }
 
     // STL conformance
@@ -141,14 +239,7 @@ protected:
     template <typename It, typename This>
     static constexpr It MakeBegin(This this_) noexcept
     {
-        if (this_->HasValueAtIndex(0))
-        {
-            return It(*this_, 0);
-        }
-        else
-        {
-            return It(*this_, this_->GetNextIndexWithValue(0));
-        }
+        return It(*this_, this_->GetFirstIndexWithValue());
     }
 
     template <typename It, typename This>
@@ -163,8 +254,8 @@ protected:
         for (size_t collision_index = 0; collision_index != Capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
-            const auto& maybe_kv = elements_[index];
-            if (!maybe_kv.has_value() || maybe_kv->first == key)
+
+            if (!has_index_.Get(index) || GetKeyAt(index) == key)
             {
                 return index;
             }
@@ -185,9 +276,65 @@ protected:
         }
     }
 
+    constexpr bool HasValueAtIndex(const size_t index) const noexcept
+    {
+        if (index < Capacity)
+        {
+            return has_index_.Get(index);
+        }
+
+        return false;
+    }
+
+    size_t GetFirstIndexWithValue() const noexcept
+    {
+        return has_index_.CountContinuousZeroBits();
+    }
+
+    size_t GetNextIndexWithValue(size_t prev_index) const noexcept
+    {
+        assert(prev_index <= Capacity);
+        return has_index_.CountContinuousZeroBits(prev_index + 1);
+    }
+
+    template <typename TT>
+    static constexpr size_t GetOffsetForIndex(size_t index) noexcept
+    {
+        return sizeof(TT) * index;
+    }
+
+    Key& GetKeyAt(size_t index) noexcept
+    {
+        const size_t offset = GetOffsetForIndex<Key>(index);
+        return *reinterpret_cast<Key*>(&keys_data_[offset]);
+    }
+    const Key& GetKeyAt(size_t index) const noexcept
+    {
+        const size_t offset = GetOffsetForIndex<Key>(index);
+        return *reinterpret_cast<const Key*>(&keys_data_[offset]);
+    }
+    Value& GetValueAt(size_t index) noexcept
+    {
+        const size_t offset = GetOffsetForIndex<Value>(index);
+        return *reinterpret_cast<Value*>(&values_data_[offset]);
+    }
+    const Value& GetValueAt(size_t index) const noexcept
+    {
+        const size_t offset = GetOffsetForIndex<Value>(index);
+        return *reinterpret_cast<const Value*>(&values_data_[offset]);
+    }
+
+    void EraseIndex(size_t index)
+    {
+        has_index_.Set(index, false);
+        GetKeyAt(index).~Key();
+        GetValueAt(index).~Value();
+    }
+
 private:
-    size_t size_ = 0;
-    std::array<std::optional<std::pair<Key, Value>>, Capacity> elements_{};
+    alignas(std::array<Key, Capacity>) std::array<uint8_t, sizeof(Key) * Capacity> keys_data_;
+    alignas(std::array<Value, Capacity>) std::array<uint8_t, sizeof(Value) * Capacity> values_data_;
+    FixedBitset<Capacity> has_index_{};
 };
 
 }  // namespace ass::fixed_unordered_map_detail
