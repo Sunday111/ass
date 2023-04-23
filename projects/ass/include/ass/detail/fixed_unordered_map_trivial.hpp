@@ -195,10 +195,12 @@ protected:
     {
         return keys_[index];
     }
+
     constexpr Value& GetValueAt(size_t index) noexcept
     {
         return values_[index];
     }
+
     constexpr const Value& GetValueAt(size_t index) const noexcept
     {
         return values_[index];

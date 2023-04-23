@@ -216,6 +216,26 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
             ASSERT_TRUE(converted_has_kv(converted, key, value, count)) << "i = " << i << ", j = " << j;
         }
     }
+
+    // Now modify values of created map
+    {
+        int offset = 0;
+        for (auto kv : map)
+        {
+            kv.value = Value(42 + offset);
+            ++offset;
+        }
+    }
+
+    // And ensure values were actually written
+    {
+        int offset = 0;
+        for (auto kv : map)
+        {
+            ASSERT_EQ(kv.value, Value(42 + offset));
+            ++offset;
+        }
+    }
 }
 
 static constexpr bool ConstexprTest()

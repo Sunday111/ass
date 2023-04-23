@@ -15,8 +15,8 @@ public:
     using Key = typename CleanCollection::Key;
     using Value = std::conditional_t<
         std::is_const_v<Collection>,
-        typename CleanCollection::Value,
-        std::add_const_t<typename CleanCollection::Value>>;
+        std::add_const_t<typename CleanCollection::Value>,
+        typename CleanCollection::Value>;
 
     struct KeyValue
     {

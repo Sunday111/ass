@@ -23,6 +23,7 @@ public:
     friend ConstIterator;
 
     FixedMapNonTriviallyDestructible() = default;
+
     FixedMapNonTriviallyDestructible(const FixedMapNonTriviallyDestructible& another)
     {
         for (size_t index = 0; index != Capacity; ++index)
@@ -35,6 +36,7 @@ public:
             }
         }
     }
+
     FixedMapNonTriviallyDestructible(FixedMapNonTriviallyDestructible&& another) noexcept
     {
         for (size_t index = 0; index != Capacity; ++index)
@@ -47,6 +49,7 @@ public:
             }
         }
     }
+
     ~FixedMapNonTriviallyDestructible()
     {
         if constexpr (Capacity != 0)
@@ -93,6 +96,7 @@ public:
         }
         return *this;
     }
+
     FixedMapNonTriviallyDestructible& operator=(FixedMapNonTriviallyDestructible&& another) noexcept
     {
         if (this == &another)
@@ -308,16 +312,19 @@ protected:
         const size_t offset = GetOffsetForIndex<Key>(index);
         return *reinterpret_cast<Key*>(&keys_data_[offset]);
     }
+
     const Key& GetKeyAt(size_t index) const noexcept
     {
         const size_t offset = GetOffsetForIndex<Key>(index);
         return *reinterpret_cast<const Key*>(&keys_data_[offset]);
     }
+
     Value& GetValueAt(size_t index) noexcept
     {
         const size_t offset = GetOffsetForIndex<Value>(index);
         return *reinterpret_cast<Value*>(&values_data_[offset]);
     }
+
     const Value& GetValueAt(size_t index) const noexcept
     {
         const size_t offset = GetOffsetForIndex<Value>(index);
