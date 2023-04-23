@@ -5,29 +5,38 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "bit/bit_count_to_type.hpp"
 #include "bit/bit_scan_constexpr.hpp"
 #include "bit/count_ones.hpp"
 
 namespace ass::fixed_bitset_detail
 {
-inline constexpr size_t GetRequiredChunksCount(size_t capacity, size_t chunk_size)
+inline constexpr size_t GetOptimalPartSize(size_t size)
+{
+    if (size <= 8) return 8;
+    if (size <= 16) return 16;
+    if (size <= 32) return 32;
+    return 64;
+}
+inline constexpr size_t GetRequiredPartsCount(size_t capacity, size_t part_size)
 {
     if (capacity == 0) return 1;
 
-    size_t n = capacity / chunk_size;
-    if (capacity % chunk_size)
+    size_t n = capacity / part_size;
+    if (capacity % part_size)
     {
         ++n;
     }
 
     return n;
 }
+
 }  // namespace ass::fixed_bitset_detail
 
 namespace ass
 {
 
-template <size_t Capacity>
+template <size_t kSize>
 class FixedBitset
 {
 public:
@@ -55,9 +64,30 @@ public:
     constexpr size_t CountOnes() const
     {
         size_t n = 0;
-        for (Part p : parts_)
+        if constexpr (kUnusedBitsCount == 0)
         {
-            n += CountBits(p);
+            for (Part p : parts_)
+            {
+                n += CountBits(p);
+            }
+        }
+        else
+        {
+            // Have to mask out unused bits
+            size_t last_part_index = kPartsCount - 1;
+            for (size_t part_index = 0; part_index != last_part_index; ++part_index)
+            {
+                n += CountBits(parts_[part_index]);
+            }
+
+            Part mask{};
+            mask = ~mask;
+            mask >>= kUnusedBitsCount;
+
+            Part part = parts_[last_part_index];
+            part &= mask;
+
+            n += CountBits(part);
         }
         return n;
     }
@@ -70,19 +100,19 @@ public:
             const Part& part = parts_[part_index];
             const size_t local = BitScanConstexpr(part);
             result += local;
-            if (local != kPartBitsSize)
+            if (local != kPartBitsCount)
             {
                 break;
             }
         }
-        return std::min(result, Capacity);
+        return std::min(result, kSize);
     }
 
     constexpr size_t CountContinuousZeroBits(const size_t ignore_first_n) const
     {
         // Skip ignored parts
-        size_t part_index = ignore_first_n / kPartBitsSize;
-        size_t result = part_index * kPartBitsSize;
+        size_t part_index = ignore_first_n / kPartBitsCount;
+        size_t result = part_index * kPartBitsCount;
 
         // Deal with remaining ignored bits
         if (ignore_first_n > result)
@@ -93,41 +123,87 @@ public:
             mask <<= ignored_bits;
             const Part part = parts_[part_index] & mask;
             const size_t local = BitScanConstexpr(part);
-            if (local != kPartBitsSize)
+            if (local != kPartBitsCount)
             {
                 return result + local;
             }
             part_index += 1;
-            result += kPartBitsSize;
+            result += kPartBitsCount;
         }
 
-        // them do the same as in overload without argument
+        // then do the same as in default overload without argument
         for (; part_index != parts_.size(); ++part_index)
         {
             const Part& part = parts_[part_index];
             const size_t local = BitScanConstexpr(part);
             result += local;
-            if (local != kPartBitsSize)
+            if (local != kPartBitsCount)
             {
                 break;
             }
         }
 
-        return std::min(result, Capacity);
+        return std::min(result, kSize);
+    }
+
+    constexpr FixedBitset operator~() const
+    {
+        auto copy = *this;
+        copy.Flip();
+        return copy;
+    }
+
+    constexpr void Flip()
+    {
+        for (Part& part : parts_) part = ~part;
+    }
+
+    constexpr FixedBitset& operator|=(const FixedBitset& another)
+    {
+        for (size_t index = 0; index != kPartsCount; ++index)
+        {
+            parts_[index] |= another.parts_[index];
+        }
+        return *this;
+    }
+
+    constexpr FixedBitset operator|(const FixedBitset& another) const
+    {
+        auto copy = *this;
+        copy |= another;
+        return copy;
+    }
+
+    constexpr FixedBitset& operator&=(const FixedBitset& another)
+    {
+        for (size_t index = 0; index != kPartsCount; ++index)
+        {
+            parts_[index] &= another.parts_[index];
+        }
+        return *this;
+    }
+
+    constexpr FixedBitset operator&(const FixedBitset& another) const
+    {
+        auto copy = *this;
+        copy &= another;
+        return copy;
     }
 
 private:
     static constexpr std::pair<size_t, size_t> DecomposeIndex(size_t index) noexcept
     {
-        size_t part_index = index / kPartBitsSize;
-        size_t bit_index = index % kPartBitsSize;
+        const size_t part_index = index / kPartBitsCount;
+        const size_t bit_index = index % kPartBitsCount;
         return {part_index, bit_index};
     }
 
 private:
-    using Part = uint64_t;
-    static constexpr size_t kPartBitsSize = 8 * sizeof(Part);
-    static constexpr size_t kPartsCount = fixed_bitset_detail::GetRequiredChunksCount(Capacity, kPartBitsSize);
+    static constexpr size_t kPartBitsCount = fixed_bitset_detail::GetOptimalPartSize(kSize);
+    static constexpr size_t kPartsCount = fixed_bitset_detail::GetRequiredPartsCount(kSize, kPartBitsCount);
+    static constexpr size_t kCapacity = kPartsCount * kPartBitsCount;
+    static constexpr size_t kUnusedBitsCount = kCapacity - kSize;
+    using Part = BitsCountToUnsignedIntT<kPartBitsCount>;
 
     std::array<Part, kPartsCount> parts_{};
 };

@@ -13,6 +13,7 @@ modernize-*\
 -google-explicit-constructor,\
 -cppcoreguidelines-macro-usage,\
 -cppcoreguidelines-pro-type-reinterpret-cast,\
+-cppcoreguidelines-avoid-magic-numbers,\
 "
 WarningsAsErrors: '*'
 # Use clang-format

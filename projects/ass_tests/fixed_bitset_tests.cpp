@@ -112,4 +112,20 @@ TEST(FixedBitsetTest, CountContinuousZeroBitsOverload)
         ASSERT_EQ(fbs.CountContinuousZeroBits(), i);
     }
 }
+
+TEST(FixedBitsetTest, CheckFreeBitsAreIgnored)
+{
+    constexpr size_t bitset_capacity = 65;
+    FixedBitset<bitset_capacity> fbs;
+    fbs.Flip();
+
+    for (size_t i = 0; i != bitset_capacity; ++i)
+    {
+        ASSERT_TRUE(fbs.Get(i));
+        fbs.Set(i, false);
+    }
+
+    ASSERT_EQ(fbs.CountOnes(), 0);
+    ASSERT_EQ(fbs.CountContinuousZeroBits(), bitset_capacity);
+}
 }  // namespace ass
