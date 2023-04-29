@@ -3,14 +3,14 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace ass::fixed_unordered_map_detail
+namespace ass::fixed_unordered_map_detail::trivially_destructible
 {
 
 template <typename Collection>
-class FixedMapIteratorTrivial
+class FixedUnorderedMapIterator
 {
 public:
-    using Self = FixedMapIteratorTrivial;
+    using Self = FixedUnorderedMapIterator;
     using CleanCollection = std::remove_const_t<Collection>;
     using Key = typename CleanCollection::Key;
     using Value = std::conditional_t<
@@ -24,29 +24,29 @@ public:
         Value& value;
     };
 
-    constexpr explicit FixedMapIteratorTrivial(Collection& collection, size_t index)
+    constexpr explicit FixedUnorderedMapIterator(Collection& collection, size_t index)
         : collection_(collection),
           index_(index)
     {
     }
 
-    constexpr FixedMapIteratorTrivial(const FixedMapIteratorTrivial&) noexcept = default;
-    constexpr FixedMapIteratorTrivial(FixedMapIteratorTrivial&&) noexcept = default;
-    constexpr FixedMapIteratorTrivial& operator=(const FixedMapIteratorTrivial&) noexcept = default;
-    constexpr FixedMapIteratorTrivial& operator=(FixedMapIteratorTrivial&&) noexcept = default;
-    ~FixedMapIteratorTrivial() noexcept = default;
+    constexpr FixedUnorderedMapIterator(const FixedUnorderedMapIterator&) noexcept = default;
+    constexpr FixedUnorderedMapIterator(FixedUnorderedMapIterator&&) noexcept = default;
+    constexpr FixedUnorderedMapIterator& operator=(const FixedUnorderedMapIterator&) noexcept = default;
+    constexpr FixedUnorderedMapIterator& operator=(FixedUnorderedMapIterator&&) noexcept = default;
+    ~FixedUnorderedMapIterator() noexcept = default;
 
-    constexpr bool operator==(const FixedMapIteratorTrivial& another) const noexcept
+    constexpr bool operator==(const FixedUnorderedMapIterator& another) const noexcept
     {
         return &collection_ == &another.collection_ && index_ == another.index_;
     }
 
-    constexpr bool operator!=(const FixedMapIteratorTrivial& another) const noexcept
+    constexpr bool operator!=(const FixedUnorderedMapIterator& another) const noexcept
     {
         return !(*this == another);
     }
 
-    constexpr FixedMapIteratorTrivial& operator++() noexcept
+    constexpr FixedUnorderedMapIterator& operator++() noexcept
     {
         index_ = collection_.GetNextIndexWithValue(index_);
         return *this;
@@ -63,4 +63,4 @@ private:
     Collection& collection_;
     size_t index_ = 0;
 };
-}  // namespace ass::fixed_unordered_map_detail
+}  // namespace ass::fixed_unordered_map_detail::trivially_destructible

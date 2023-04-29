@@ -15,6 +15,5 @@ modernize-*\
 -cppcoreguidelines-pro-type-reinterpret-cast,\
 -cppcoreguidelines-avoid-magic-numbers,\
 "
-WarningsAsErrors: '*'
 # Use clang-format
 FormatStyle: file

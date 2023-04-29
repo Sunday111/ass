@@ -3,14 +3,14 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace ass::fixed_unordered_map_detail
+namespace ass::fixed_unordered_map_detail::non_trivially_destructible
 {
 
 template <typename Collection>
-class FixedMapIteratorNonTrivial
+class FixedUnorderedMapIterator
 {
 public:
-    using Self = FixedMapIteratorNonTrivial;
+    using Self = FixedUnorderedMapIterator;
     using CleanCollection = std::remove_const_t<Collection>;
     using Key = typename CleanCollection::Key;
     using Value = std::conditional_t<
@@ -24,27 +24,25 @@ public:
         Value& value;
     };
 
-    explicit FixedMapIteratorNonTrivial(Collection& collection, size_t index) : collection_(collection), index_(index)
-    {
-    }
+    explicit FixedUnorderedMapIterator(Collection& collection, size_t index) : collection_(collection), index_(index) {}
 
-    FixedMapIteratorNonTrivial(const FixedMapIteratorNonTrivial&) noexcept = default;
-    FixedMapIteratorNonTrivial(FixedMapIteratorNonTrivial&&) noexcept = default;
-    FixedMapIteratorNonTrivial& operator=(const FixedMapIteratorNonTrivial&) noexcept = default;
-    FixedMapIteratorNonTrivial& operator=(FixedMapIteratorNonTrivial&&) noexcept = default;
-    ~FixedMapIteratorNonTrivial() noexcept = default;
+    FixedUnorderedMapIterator(const FixedUnorderedMapIterator&) noexcept = default;
+    FixedUnorderedMapIterator(FixedUnorderedMapIterator&&) noexcept = default;
+    FixedUnorderedMapIterator& operator=(const FixedUnorderedMapIterator&) noexcept = default;
+    FixedUnorderedMapIterator& operator=(FixedUnorderedMapIterator&&) noexcept = default;
+    ~FixedUnorderedMapIterator() noexcept = default;
 
-    bool operator==(const FixedMapIteratorNonTrivial& another) const noexcept
+    bool operator==(const FixedUnorderedMapIterator& another) const noexcept
     {
         return &collection_ == &another.collection_ && index_ == another.index_;
     }
 
-    bool operator!=(const FixedMapIteratorNonTrivial& another) const noexcept
+    bool operator!=(const FixedUnorderedMapIterator& another) const noexcept
     {
         return !(*this == another);
     }
 
-    FixedMapIteratorNonTrivial& operator++() noexcept
+    FixedUnorderedMapIterator& operator++() noexcept
     {
         index_ = collection_.GetNextIndexWithValue(index_);
         return *this;
@@ -61,4 +59,4 @@ private:
     Collection& collection_;
     size_t index_ = 0;
 };
-}  // namespace ass::fixed_unordered_map_detail
+}  // namespace ass::fixed_unordered_map_detail::non_trivially_destructible

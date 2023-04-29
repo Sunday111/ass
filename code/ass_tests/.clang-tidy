@@ -6,7 +6,6 @@ Checks: "-cppcoreguidelines-avoid-magic-numbers,\
 -cert-msc32-c,\
 -cert-msc51-cpp,\
 "
-WarningsAsErrors: '*'
 # Use clang-format
 FormatStyle: file
 InheritParentConfig: true

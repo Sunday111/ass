@@ -6,25 +6,25 @@
 #include "ass/fixed_bitset.hpp"
 #include "fixed_unordered_map_iterator_non_trivial.hpp"
 
-namespace ass::fixed_unordered_map_detail
+namespace ass::fixed_unordered_map_detail::non_trivially_destructible
 {
 
 template <size_t Capacity, typename Key_, typename Value_, typename Hasher_>
-class FixedMapNonTriviallyDestructible
+class FixedUnorderedMap
 {
 public:
     using Key = Key_;
     using Value = Value_;
     using Hasher = Hasher_;
-    using Self = FixedMapNonTriviallyDestructible<Capacity, Key, Value, Hasher>;
-    using Iterator = FixedMapIteratorNonTrivial<Self>;
-    using ConstIterator = FixedMapIteratorNonTrivial<std::add_const_t<Self>>;
+    using Self = FixedUnorderedMap<Capacity, Key, Value, Hasher>;
+    using Iterator = FixedUnorderedMapIterator<Self>;
+    using ConstIterator = FixedUnorderedMapIterator<std::add_const_t<Self>>;
     friend Iterator;
     friend ConstIterator;
 
-    FixedMapNonTriviallyDestructible() = default;
+    FixedUnorderedMap() = default;
 
-    FixedMapNonTriviallyDestructible(const FixedMapNonTriviallyDestructible& another)
+    FixedUnorderedMap(const FixedUnorderedMap& another)
     {
         for (size_t index = 0; index != Capacity; ++index)
         {
@@ -37,7 +37,7 @@ public:
         }
     }
 
-    FixedMapNonTriviallyDestructible(FixedMapNonTriviallyDestructible&& another) noexcept
+    FixedUnorderedMap(FixedUnorderedMap&& another) noexcept
     {
         for (size_t index = 0; index != Capacity; ++index)
         {
@@ -50,7 +50,7 @@ public:
         }
     }
 
-    ~FixedMapNonTriviallyDestructible()
+    ~FixedUnorderedMap()
     {
         if constexpr (Capacity != 0)
         {
@@ -64,7 +64,7 @@ public:
         }
     }
 
-    FixedMapNonTriviallyDestructible& operator=(const FixedMapNonTriviallyDestructible& another)
+    FixedUnorderedMap& operator=(const FixedUnorderedMap& another)
     {
         if (this == &another)
         {
@@ -97,7 +97,7 @@ public:
         return *this;
     }
 
-    FixedMapNonTriviallyDestructible& operator=(FixedMapNonTriviallyDestructible&& another) noexcept
+    FixedUnorderedMap& operator=(FixedUnorderedMap&& another) noexcept
     {
         if (this == &another)
         {
@@ -344,4 +344,4 @@ private:
     FixedBitset<Capacity> has_index_{};
 };
 
-}  // namespace ass::fixed_unordered_map_detail
+}  // namespace ass::fixed_unordered_map_detail::non_trivially_destructible

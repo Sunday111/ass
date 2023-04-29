@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 include(FetchContent)
 
+file(GLOB_RECURSE target_headers ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 file(GLOB_RECURSE target_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 FetchContent_Declare(
@@ -13,7 +14,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 set(target_name ass_tests)
-add_executable(${target_name} ${target_sources})
+add_executable(${target_name} ${target_headers} ${target_sources})
 target_link_libraries(${target_name} PUBLIC gtest_main ass)
 
 # get_cmake_property(_variableNames VARIABLES)

@@ -6,22 +6,22 @@
 #include "ass/fixed_bitset.hpp"
 #include "fixed_unordered_map_iterator_trivial.hpp"
 
-namespace ass::fixed_unordered_map_detail
+namespace ass::fixed_unordered_map_detail::trivially_destructible
 {
 template <size_t Capacity, typename Key_, typename Value_, typename Hasher_>
-class FixedMapTriviallyDestructible
+class FixedUnorderedMap
 {
 public:
     using Key = Key_;
     using Value = Value_;
     using Hasher = Hasher_;
-    using Self = FixedMapTriviallyDestructible<Capacity, Key, Value, Hasher>;
-    using Iterator = FixedMapIteratorTrivial<Self>;
-    using ConstIterator = FixedMapIteratorTrivial<std::add_const_t<Self>>;
+    using Self = FixedUnorderedMap<Capacity, Key, Value, Hasher>;
+    using Iterator = FixedUnorderedMapIterator<Self>;
+    using ConstIterator = FixedUnorderedMapIterator<std::add_const_t<Self>>;
     friend Iterator;
     friend ConstIterator;
 
-    constexpr FixedMapTriviallyDestructible() = default;
+    constexpr FixedUnorderedMap() = default;
 
     constexpr bool Contains(const Key key) const
     {
@@ -211,4 +211,4 @@ private:
     std::array<Value, Capacity> values_{};
     FixedBitset<Capacity> has_index_{};
 };
-}  // namespace ass::fixed_unordered_map_detail
+}  // namespace ass::fixed_unordered_map_detail::trivially_destructible
