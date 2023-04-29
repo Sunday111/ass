@@ -17,8 +17,9 @@ template <typename T, typename Converter = EnumIndexConverter<T>>
 class EnumSet
 {
 public:
-    static constexpr size_t kCapacity = Converter::GetElementsCount();
-    using Iterator = EnumSetIterator<T>;
+    using Iterator = EnumSetIterator<EnumSet>;
+    using ValueType = T;
+    using EnumConverter = Converter;
     friend Iterator;
 
     constexpr void Add(const T value)
@@ -58,6 +59,11 @@ public:
         return bits_.CountOnes();
     }
 
+    constexpr size_t Capacity() const
+    {
+        return kCapacity;
+    }
+
     constexpr bool IsEmpty() const
     {
         return Size() == 0;
@@ -65,21 +71,24 @@ public:
 
     // clang-format off
     // STL
-    auto begin() const { return EnumSetIterator<T>(*this, bits_.CountContinuousZeroBits()); }
-    auto end() const { return EnumSetIterator<T>(*this, kCapacity); }
+    auto begin() const { return Iterator(*this, bits_.CountContinuousZeroBits()); }
+    auto end() const { return Iterator(*this, kCapacity); }
 
     // clang-format on
 
 private:
+    static constexpr size_t kCapacity = Converter::GetElementsCount();
     FixedBitset<kCapacity> bits_{};
 };
 
-// TODO(sunday): This one must use collection type or also accept enum to index converter type
-template <typename T>
+template <typename Collection>
 class EnumSetIterator
 {
 public:
-    constexpr explicit EnumSetIterator(const EnumSet<T>& set, size_t index) : set_(set), index_(index) {}
+    using ValueType = typename Collection::ValueType;
+    using Converter = typename Collection::EnumConverter;
+
+    constexpr explicit EnumSetIterator(const Collection& set, size_t index) : set_(set), index_(index) {}
 
     constexpr EnumSetIterator& operator++()
     {
@@ -97,8 +106,13 @@ public:
         return !(*this == another);
     }
 
+    constexpr ValueType operator*() const
+    {
+        return Converter::ConvertIndexToEnum(index_);
+    }
+
 private:
-    const EnumSet<T>& set_;
+    const Collection& set_;
     size_t index_;
 };
 

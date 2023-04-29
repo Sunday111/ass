@@ -206,4 +206,72 @@ TEST(EnumSetTests, MakeEnumSet)
     static_assert(make(MyEnum::D, MyEnum::A).Size() == 2);
 }
 
+TEST(EnumSetTests, Iteration)
+{
+    constexpr std::array<MyEnum, 3> expected{MyEnum::B, MyEnum::D, MyEnum::F};
+
+    size_t next_index = 0;
+    std::array<MyEnum, 3> actual{};
+    for (const MyEnum value : MakeEnumSet(MyEnum::D, MyEnum::B, MyEnum::F))
+    {
+        actual[next_index++] = value;
+    }
+
+    ASSERT_EQ(expected, actual);
+}
+
+// contains only A, C, F values
+static constexpr auto GetNarrowedMyEnumValues()
+{
+    return std::array<MyEnum, 3>{MyEnum::A, MyEnum::C, MyEnum::F};
+};
+
+using CustomEnumRange = EnumIndexConverter_Sparse<MyEnum, GetNarrowedMyEnumValues>;
+
+TEST(EnumSetTests, AddRemoveWithCustomRange)
+{
+    EnumSet<MyEnum, CustomEnumRange> s;
+    ASSERT_EQ(s.Capacity(), 3);
+
+    s.Add(MyEnum::A);
+    ASSERT_TRUE(s.Contains(MyEnum::A));
+    ASSERT_FALSE(s.Contains(MyEnum::C));
+    ASSERT_FALSE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 1);
+
+    s.Add(MyEnum::C);
+    ASSERT_TRUE(s.Contains(MyEnum::A));
+    ASSERT_TRUE(s.Contains(MyEnum::C));
+    ASSERT_FALSE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 2);
+
+    s.Add(MyEnum::F);
+    ASSERT_TRUE(s.Contains(MyEnum::A));
+    ASSERT_TRUE(s.Contains(MyEnum::C));
+    ASSERT_TRUE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 3);
+
+    ASSERT_EQ(s.GetComplement().Size(), 0);
+
+    s.Remove(MyEnum::C);
+    ASSERT_TRUE(s.Contains(MyEnum::A));
+    ASSERT_FALSE(s.Contains(MyEnum::C));
+    ASSERT_TRUE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 2);
+
+    s.Remove(MyEnum::A);
+    ASSERT_FALSE(s.Contains(MyEnum::A));
+    ASSERT_FALSE(s.Contains(MyEnum::C));
+    ASSERT_TRUE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 1);
+
+    s.Remove(MyEnum::F);
+    ASSERT_FALSE(s.Contains(MyEnum::A));
+    ASSERT_FALSE(s.Contains(MyEnum::C));
+    ASSERT_FALSE(s.Contains(MyEnum::F));
+    ASSERT_EQ(s.Size(), 0);
+
+    ASSERT_EQ(s.GetComplement().Size(), s.Capacity());
+}
+
 }  // namespace ass::enum_set_tests
