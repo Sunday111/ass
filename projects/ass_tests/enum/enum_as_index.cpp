@@ -66,10 +66,10 @@ TEST(EnumIndexConverter, ContinuousSigned)
     ASSERT_EQ(CV::ConvertIndexToEnum(3), E::D);
 }
 
-enum class SparseEnumeration
+enum class SparseEnumeration : int
 {
-    A = 0,
-    B = 13,
+    A = -22,
+    B = -2,
     C = 22,
     D = 23,
     E = 42,
@@ -97,7 +97,7 @@ struct ass::EnumIndexConverter<SparseEnumeration>
 {
 };
 
-TEST(EnumIndexConverter, SparseUnsigned)
+TEST(EnumIndexConverter, SparseSigned)
 {
     using E = SparseEnumeration;
     using CV = ass::EnumIndexConverter<E>;
