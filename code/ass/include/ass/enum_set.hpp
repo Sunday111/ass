@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <type_traits>
 
 #include "ass/enum/enum_as_index.hpp"
