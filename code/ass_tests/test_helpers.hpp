@@ -310,5 +310,7 @@ struct TupleToGoogleTestTypesImpl<std::tuple<Types...>>
 
 template <typename TypesTuple>
 using TupleToGoogleTestTypes = typename TupleToGoogleTestTypesImpl<TypesTuple>::Result;
+template <template <typename...> typename Template, typename... ArgsVariants>
+using GParametrizeWithCombinations = TupleToGoogleTestTypes<ParametrizeWithCombinations<Template, ArgsVariants...>>;
 
 }  // namespace test_helpers

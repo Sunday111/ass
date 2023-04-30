@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <memory>
 #include <random>
 #include <string_view>
 #include <tuple>
@@ -55,17 +56,6 @@ static constexpr auto GetSparseEnumValues()
         SparseEnum::J,
         SparseEnum::K};
 }
-}  // namespace enum_map_tests
-
-struct TestKeyParams_Continuous
-{
-    using KeyType = enum_map_tests::ContinuousEnum;
-    using KeyConverter = ass::EnumIndexConverter_Continuous<KeyType, KeyType::A, KeyType::kMax>;
-    static constexpr std::string_view GetName()
-    {
-        return "Continuous";
-    }
-};
 
 template <typename MapType_>
 class EnumMapTest : public testing::Test
@@ -78,20 +68,17 @@ public:
         return (index + 1) * 3;
     }
 };
-
-namespace enum_map_tests
-{
-
 template <typename KeyAndKeyConverter, typename Value>
 using EnumMapAlias =
     ass::EnumMap<std::tuple_element_t<0, KeyAndKeyConverter>, Value, std::tuple_element_t<1, KeyAndKeyConverter>>;
-using ContinuousEnumProps = std::
-    tuple<ContinuousEnum, ass::EnumIndexConverter_Continuous<ContinuousEnum, ContinuousEnum::A, ContinuousEnum::kMax>>;
-using SparseEnumProps = std::tuple<SparseEnum, ass::EnumIndexConverter_Sparse<SparseEnum, GetSparseEnumValues>>;
-using Implementations = test_helpers::TupleToGoogleTestTypes<test_helpers::ParametrizeWithCombinations<
+using ContinuousConverter = ass::EnumIndexConverter_Continuous<ContinuousEnum, ContinuousEnum::A, ContinuousEnum::kMax>;
+using ContinuousEnumProps = std::tuple<ContinuousEnum, ContinuousConverter>;
+using SparseConverter = ass::EnumIndexConverter_Sparse<SparseEnum, GetSparseEnumValues>;
+using SparseEnumProps = std::tuple<SparseEnum, SparseConverter>;
+using Implementations = test_helpers::GParametrizeWithCombinations<
     EnumMapAlias,
     std::tuple<ContinuousEnumProps, SparseEnumProps>,
-    std::tuple<size_t, NonTrivialInteger<size_t>>>>;
+    std::tuple<size_t, NonTrivialInteger<size_t>>>;
 
 struct TestsNames
 {
@@ -105,9 +92,8 @@ struct TestsNames
         return name;
     }
 };
-}  // namespace enum_map_tests
 
-TYPED_TEST_SUITE(EnumMapTest, enum_map_tests::Implementations, enum_map_tests::TestsNames);
+TYPED_TEST_SUITE(EnumMapTest, Implementations, TestsNames);
 
 TYPED_TEST(EnumMapTest, AddRemove)
 {
@@ -194,21 +180,9 @@ class ValueWithDestructor
 public:
     ValueWithDestructor(size_t* counter, size_t value) : destructor_calls_counter_(counter), value_(value) {}
     ValueWithDestructor(const ValueWithDestructor&) = delete;
-    ValueWithDestructor(ValueWithDestructor&& another) noexcept
-        : destructor_calls_counter_(another.destructor_calls_counter_),
-          value_(another.value_)
-    {
-        another.destructor_calls_counter_ = nullptr;
-    }
+    ValueWithDestructor(ValueWithDestructor&& another) noexcept = delete;
     ValueWithDestructor& operator=(const ValueWithDestructor&) = delete;
-    ValueWithDestructor& operator=(ValueWithDestructor&& another) noexcept
-    {
-        destructor_calls_counter_ = another.destructor_calls_counter_;
-        value_ = another.value_;
-
-        another.destructor_calls_counter_ = nullptr;
-        return *this;
-    }
+    ValueWithDestructor& operator=(ValueWithDestructor&& another) noexcept = delete;
     ~ValueWithDestructor()
     {
         if (destructor_calls_counter_)
@@ -223,15 +197,21 @@ public:
 
 TEST(EnumMap, ObjectDestructionTest)
 {
-    using KeyParams = TestKeyParams_Continuous;
-    using KeyType = typename KeyParams::KeyType;
-    using KeyConverter = typename KeyParams::KeyConverter;
-    using ValueType = ValueWithDestructor;
+    using KeyType = ContinuousEnum;
+    using KeyConverter = ContinuousConverter;
+    using ValueType = std::unique_ptr<ValueWithDestructor>;
     ass::EnumMap<KeyType, ValueType, KeyConverter> map{};
 
     size_t dtor_counter = 0;
-    map.Emplace(KeyType::A, &dtor_counter, 42u);
+    map.Emplace(KeyType::A, std::make_unique<ValueWithDestructor>(&dtor_counter, 42u));
     ASSERT_EQ(dtor_counter, 0);
-    map.Remove(KeyType::A);
+    {
+        auto removed_object = map.Remove(KeyType::A);
+        ASSERT_TRUE(removed_object.has_value());
+        ASSERT_NE(removed_object->get(), nullptr);
+        ASSERT_EQ(removed_object->get()->value_, 42);
+        ASSERT_EQ(dtor_counter, 0);
+    }
     ASSERT_EQ(dtor_counter, 1);
 }
+}  // namespace enum_map_tests
