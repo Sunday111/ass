@@ -3,8 +3,8 @@
 #include <array>
 #include <optional>
 
-#include "ass/enum/enum_as_index.hpp"
-#include "ass/enum_set.hpp"
+#include "../enum/enum_as_index.hpp"
+#include "../enum_set.hpp"
 
 namespace ass::enum_map_detail::trivially_destructible
 {

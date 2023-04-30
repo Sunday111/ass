@@ -6,7 +6,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "ass/bit/bit_count_to_type.hpp"
+#include "bit_count_to_type.hpp"
 
 namespace ass::bit_scan_constexpr_detail
 {

@@ -2,9 +2,9 @@
 
 #include <type_traits>
 
-#include "ass/enum/enum_as_index.hpp"
 #include "detail/enum_map_non_trivial.hpp"
 #include "detail/enum_map_trivial.hpp"
+#include "enum/enum_as_index.hpp"
 
 namespace ass
 {

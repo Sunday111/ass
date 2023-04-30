@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "ass/bit/bit_count_to_type.hpp"
-#include "ass/detail/bit/count_ones_detail.hpp"
+#include "../detail/bit/count_ones_detail.hpp"
+#include "bit_count_to_type.hpp"
 
 namespace ass
 {

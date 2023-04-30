@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ass/enum_set.hpp"
+#include "../enum_set.hpp"
 
 namespace ass::enum_map_detail::non_trivially_destructible
 {

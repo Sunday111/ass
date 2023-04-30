@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "ass/enum/enum_as_index.hpp"
-#include "ass/fixed_bitset.hpp"
+#include "enum/enum_as_index.hpp"
+#include "fixed_bitset.hpp"
 
 namespace ass
 {

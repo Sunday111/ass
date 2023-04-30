@@ -6,8 +6,8 @@
 #include <limits>
 #include <type_traits>
 
-#include "ass/fixed_bitset.hpp"
-#include "ass/fixed_unordered_map.hpp"
+#include "../fixed_bitset.hpp"
+#include "../fixed_unordered_map.hpp"
 
 namespace ass::enum_as_index_detail
 {
