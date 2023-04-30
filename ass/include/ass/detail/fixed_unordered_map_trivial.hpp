@@ -48,6 +48,29 @@ public:
         return values_[index];
     }
 
+    template <typename... Args>
+    constexpr Value* TryEmplace(const Key key, Args&&... args)
+    {
+        const size_t index = FindIndexForKey(key);
+        if (index == capacity)
+        {
+            return nullptr;
+        }
+
+        Value& value = values_[index];
+        has_index_.Set(index, true);
+        value = Value(std::forward<Args>(args)...);
+        return &value;
+    }
+
+    template <typename... Args>
+    constexpr Value& Emplace(const Key key, Args&&... args)
+    {
+        auto ptr = TryEmplace(key, std::forward<Args>(args)...);
+        assert(ptr);
+        return *ptr;
+    }
+
     constexpr Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindIndexForKey(key);
@@ -56,31 +79,27 @@ public:
             return nullptr;
         }
 
-        if (has_index_.Get(index))
+        const bool must_init = has_index_.Set(index, true);
+
+        if (must_init)
         {
-            if (value != std::nullopt)
-            {
-                values_[index] = std::move(*value);
-            }
-        }
-        else
-        {
-            has_index_.Set(index, true);
             keys_[index] = key;
-            if (value == std::nullopt)
-            {
-                values_[index] = Value{};
-            }
-            else
-            {
-                values_[index] = std::move(*value);
-            }
         }
 
-        return &values_[index];
+        Value& value_ref = values_[index];
+        if (value != std::nullopt)
+        {
+            value_ref = std::move(*value);
+        }
+        else if (must_init)
+        {
+            value_ref = Value{};
+        }
+
+        return &value_ref;
     }
 
-    constexpr Value& Add(const Key key, Value value = {})
+    constexpr Value& Add(const Key key, std::optional<Value> value = std::nullopt)
     {
         auto ptr = TryAdd(key, std::move(value));
         assert(ptr);
@@ -90,9 +109,8 @@ public:
     constexpr std::optional<Value> Remove(const Key key)
     {
         const size_t index = FindIndexForKey(key);
-        if (index != capacity && has_index_.Get(index))
+        if (index != capacity && has_index_.Set(index, false))
         {
-            has_index_.Set(index, false);
             return std::move(values_[index]);
         }
 

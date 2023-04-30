@@ -155,6 +155,36 @@ public:
         return GetValueAt(index);
     }
 
+    template <typename... Args>
+    constexpr Value* TryEmplace(const Key key, Args&&... args)
+    {
+        const size_t index = FindIndexForKey(key);
+        if (index == capacity)
+        {
+            return nullptr;
+        }
+
+        Value& value = GetValueAt(index);
+        if (has_index_.Set(index))
+        {
+            new (&value) Value(std::forward<Args>(args)...);
+        }
+        else
+        {
+            value = Value(std::forward<Args>(args)...);
+        }
+
+        return &value;
+    }
+
+    template <typename... Args>
+    constexpr Value& Emplace(const Key key, Args&&... args)
+    {
+        auto ptr = TryEmplace(key, std::forward<Args>(args)...);
+        assert(ptr);
+        return *ptr;
+    }
+
     Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindIndexForKey(key);
@@ -164,32 +194,27 @@ public:
         }
 
         Value& value_ref = GetValueAt(index);
-        if (has_index_.Get(index))
+        const bool must_init = has_index_.Set(index, true);
+
+        if (must_init)
         {
-            if (value != std::nullopt)
-            {
-                value_ref = std::move(*value);
-            }
-        }
-        else
-        {
-            has_index_.Set(index, true);
             Key& key_ref = GetKeyAt(index);
             new (&key_ref) Key(key);
-            if (value == std::nullopt)
-            {
-                new (&value_ref) Value();
-            }
-            else
-            {
-                new (&value_ref) Value(std::move(*value));
-            }
+        }
+
+        if (value != std::nullopt)
+        {
+            value_ref = std::move(*value);
+        }
+        else if (must_init)
+        {
+            new (&value_ref) Value();
         }
 
         return &value_ref;
     }
 
-    Value& Add(const Key key, Value value = {})
+    Value& Add(const Key key, std::optional<Value> value = std::nullopt)
     {
         auto ptr = TryAdd(key, std::move(value));
         assert(ptr);
