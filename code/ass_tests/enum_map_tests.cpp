@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <random>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "ass/enum/enum_as_index.hpp"
@@ -51,14 +52,36 @@ static constexpr auto GetSparseEnumValues()
         EnumMapTest_SparseEnum::K};
 }
 
-struct TestParams_TrivialContinuous
+template <typename KeyParams_, typename ValueParams_>
+struct EnumMapTestParams : public KeyParams_, public ValueParams_
+{
+    using KeyParams = KeyParams_;
+    using ValueParams = ValueParams_;
+    static const std::string GetName()
+    {
+        std::string result(KeyParams::GetName());
+        result += "_";
+        result += ValueParams_::GetName();
+        return result;
+    }
+};
+
+struct TestKeyParams_Continuous
 {
     using KeyType = EnumMapTest_ContinuousEnum;
     using KeyConverter = ass::EnumIndexConverter_Continuous<KeyType, KeyType::A, KeyType::kMax>;
+    static constexpr std::string_view GetName()
+    {
+        return "Continuous";
+    }
+};
+
+struct TestValueParams_Trivial
+{
     using ValueType = size_t;
     static constexpr std::string_view GetName()
     {
-        return "Trivial_Continuous";
+        return "Trivial";
     }
     static constexpr ValueType MakeValue(size_t index)
     {
@@ -66,44 +89,26 @@ struct TestParams_TrivialContinuous
     }
 };
 
-struct TestParams_NonTrivialContinuous : TestParams_TrivialContinuous
+struct TestValueParams_NonTrivial
 {
     using ValueType = NonTrivialInteger<size_t>;
     static constexpr std::string_view GetName()
     {
-        return "NonTrivial_Continuous";
+        return "NonTrivial";
     }
     static ValueType MakeValue(size_t index)
     {
-        return ValueType((index + 1) * 4);
+        return ValueType((index + 1) * 3);
     }
 };
 
-struct TestParams_TrivialSparse
+struct TestKeyParams_Sparse
 {
     using KeyType = EnumMapTest_SparseEnum;
     using KeyConverter = ass::EnumIndexConverter_Sparse<KeyType, GetSparseEnumValues>;
-    using ValueType = size_t;
     static constexpr std::string_view GetName()
     {
-        return "Trivial_Sparse";
-    }
-    static constexpr ValueType MakeValue(size_t index)
-    {
-        return (index + 1) * 3;
-    }
-};
-
-struct TestParams_NonTrivialSparse : TestParams_TrivialSparse
-{
-    using ValueType = NonTrivialInteger<size_t>;
-    static constexpr std::string_view GetName()
-    {
-        return "NonTrivial_Sparse";
-    }
-    static ValueType MakeValue(size_t index)
-    {
-        return ValueType((index + 1) * 4);
+        return "Sparse";
     }
 };
 
@@ -114,11 +119,10 @@ public:
     using TestParameters = TestParameters_;
 };
 
-using EnumMapTest_Implementations = testing::Types<
-    TestParams_TrivialContinuous,
-    TestParams_TrivialSparse,
-    TestParams_NonTrivialContinuous,
-    TestParams_NonTrivialSparse>;
+using EnumMapTest_Implementations = test_helpers::TupleToGoogleTestTypes<test_helpers::ParametrizeWithCombinations<
+    EnumMapTestParams,
+    std::tuple<TestKeyParams_Continuous, TestKeyParams_Sparse>,
+    std::tuple<TestValueParams_Trivial, TestValueParams_NonTrivial>>>;
 
 struct EnumMapTest_Names
 {
@@ -246,9 +250,9 @@ public:
 
 TEST(EnumMap, ObjectDestructionTest)
 {
-    using Params = TestParams_TrivialContinuous;
-    using KeyType = typename Params::KeyType;
-    using KeyConverter = typename Params::KeyConverter;
+    using KeyParams = TestKeyParams_Continuous;
+    using KeyType = typename KeyParams::KeyType;
+    using KeyConverter = typename KeyParams::KeyConverter;
     using ValueType = ValueWithDestructor;
     ass::EnumMap<KeyType, ValueType, KeyConverter> map{};
 
