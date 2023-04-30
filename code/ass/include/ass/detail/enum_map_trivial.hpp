@@ -12,6 +12,10 @@ template <typename Key, typename Value, typename Converter>
 class EnumMap
 {
 public:
+    using KeyType = Key;
+    using ValueType = Value;
+    using KeyConverter = Converter;
+
     constexpr EnumMap() = default;
 
     constexpr Value& GetOrAdd(const Key key, std::optional<Value> opt_value = std::nullopt)
@@ -70,7 +74,7 @@ public:
         return keys_.Size();
     }
 
-    constexpr size_t Capacity() const
+    static constexpr size_t Capacity()
     {
         return kCapacity;
     }

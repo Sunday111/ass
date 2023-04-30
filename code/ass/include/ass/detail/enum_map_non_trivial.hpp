@@ -8,6 +8,10 @@ template <typename Key, typename Value, typename Converter>
 class EnumMap
 {
 public:
+    using KeyType = Key;
+    using ValueType = Value;
+    using KeyConverter = Converter;
+
     EnumMap() = default;
 
     EnumMap(const EnumMap& another) : keys_(another.keys_)
@@ -190,7 +194,7 @@ public:
         return keys_.Size();
     }
 
-    size_t Capacity() const
+    static constexpr size_t Capacity()
     {
         return kCapacity;
     }

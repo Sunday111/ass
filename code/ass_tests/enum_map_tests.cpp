@@ -2,13 +2,17 @@
 #include <random>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "ass/enum/enum_as_index.hpp"
 #include "ass/enum_map.hpp"
 #include "test_helpers.hpp"
 
-enum class EnumMapTest_ContinuousEnum
+namespace enum_map_tests
+{
+enum class ContinuousEnum
 {
     A,
     B,
@@ -23,7 +27,7 @@ enum class EnumMapTest_ContinuousEnum
     kMax
 };
 
-enum class EnumMapTest_SparseEnum
+enum class SparseEnum
 {
     A = 1,
     B = 2,
@@ -39,36 +43,23 @@ enum class EnumMapTest_SparseEnum
 
 static constexpr auto GetSparseEnumValues()
 {
-    return std::array<EnumMapTest_SparseEnum, 10>{
-        EnumMapTest_SparseEnum::A,
-        EnumMapTest_SparseEnum::B,
-        EnumMapTest_SparseEnum::C,
-        EnumMapTest_SparseEnum::D,
-        EnumMapTest_SparseEnum::E,
-        EnumMapTest_SparseEnum::F,
-        EnumMapTest_SparseEnum::G,
-        EnumMapTest_SparseEnum::H,
-        EnumMapTest_SparseEnum::J,
-        EnumMapTest_SparseEnum::K};
+    return std::array<SparseEnum, 10>{
+        SparseEnum::A,
+        SparseEnum::B,
+        SparseEnum::C,
+        SparseEnum::D,
+        SparseEnum::E,
+        SparseEnum::F,
+        SparseEnum::G,
+        SparseEnum::H,
+        SparseEnum::J,
+        SparseEnum::K};
 }
-
-template <typename KeyParams_, typename ValueParams_>
-struct EnumMapTestParams : public KeyParams_, public ValueParams_
-{
-    using KeyParams = KeyParams_;
-    using ValueParams = ValueParams_;
-    static const std::string GetName()
-    {
-        std::string result(KeyParams::GetName());
-        result += "_";
-        result += ValueParams_::GetName();
-        return result;
-    }
-};
+}  // namespace enum_map_tests
 
 struct TestKeyParams_Continuous
 {
-    using KeyType = EnumMapTest_ContinuousEnum;
+    using KeyType = enum_map_tests::ContinuousEnum;
     using KeyConverter = ass::EnumIndexConverter_Continuous<KeyType, KeyType::A, KeyType::kMax>;
     static constexpr std::string_view GetName()
     {
@@ -76,75 +67,57 @@ struct TestKeyParams_Continuous
     }
 };
 
-struct TestValueParams_Trivial
+template <typename MapType_>
+class EnumMapTest : public testing::Test
 {
-    using ValueType = size_t;
-    static constexpr std::string_view GetName()
-    {
-        return "Trivial";
-    }
-    static constexpr ValueType MakeValue(size_t index)
+public:
+    using MapType = MapType_;
+
+    static constexpr size_t MakeValue(size_t index)
     {
         return (index + 1) * 3;
     }
 };
 
-struct TestValueParams_NonTrivial
+namespace enum_map_tests
 {
-    using ValueType = NonTrivialInteger<size_t>;
-    static constexpr std::string_view GetName()
-    {
-        return "NonTrivial";
-    }
-    static ValueType MakeValue(size_t index)
-    {
-        return ValueType((index + 1) * 3);
-    }
-};
 
-struct TestKeyParams_Sparse
-{
-    using KeyType = EnumMapTest_SparseEnum;
-    using KeyConverter = ass::EnumIndexConverter_Sparse<KeyType, GetSparseEnumValues>;
-    static constexpr std::string_view GetName()
-    {
-        return "Sparse";
-    }
-};
+template <typename KeyAndKeyConverter, typename Value>
+using EnumMapAlias =
+    ass::EnumMap<std::tuple_element_t<0, KeyAndKeyConverter>, Value, std::tuple_element_t<1, KeyAndKeyConverter>>;
+using ContinuousEnumProps = std::
+    tuple<ContinuousEnum, ass::EnumIndexConverter_Continuous<ContinuousEnum, ContinuousEnum::A, ContinuousEnum::kMax>>;
+using SparseEnumProps = std::tuple<SparseEnum, ass::EnumIndexConverter_Sparse<SparseEnum, GetSparseEnumValues>>;
+using Implementations = test_helpers::TupleToGoogleTestTypes<test_helpers::ParametrizeWithCombinations<
+    EnumMapAlias,
+    std::tuple<ContinuousEnumProps, SparseEnumProps>,
+    std::tuple<size_t, NonTrivialInteger<size_t>>>>;
 
-template <typename TestParameters_>
-class EnumMapTest : public testing::Test
-{
-public:
-    using TestParameters = TestParameters_;
-};
-
-using EnumMapTest_Implementations = test_helpers::TupleToGoogleTestTypes<test_helpers::ParametrizeWithCombinations<
-    EnumMapTestParams,
-    std::tuple<TestKeyParams_Continuous, TestKeyParams_Sparse>,
-    std::tuple<TestValueParams_Trivial, TestValueParams_NonTrivial>>>;
-
-struct EnumMapTest_Names
+struct TestsNames
 {
     template <typename T>
     static std::string GetName(int)
     {
-        return std::string(T::GetName());
+        constexpr bool kIsContinuous = (std::is_same_v<typename T::KeyType, ContinuousEnum>);
+        constexpr bool kIsTrivial = std::is_trivially_destructible_v<typename T::ValueType>;
+        std::string name = kIsContinuous ? "Continuous" : "Sparse";
+        name += kIsTrivial ? "Trivial" : "NonTrivial";
+        return name;
     }
 };
+}  // namespace enum_map_tests
 
-TYPED_TEST_SUITE(EnumMapTest, EnumMapTest_Implementations, EnumMapTest_Names);
+TYPED_TEST_SUITE(EnumMapTest, enum_map_tests::Implementations, enum_map_tests::TestsNames);
 
 TYPED_TEST(EnumMapTest, AddRemove)
 {
     using Self = std::decay_t<decltype(*this)>;
-    using Parameters = typename Self::TestParameters;
-    using KeyType = typename Parameters::KeyType;
-    using ValueType = typename Parameters::ValueType;
-    using KeyConverter = typename Parameters::KeyConverter;
-    using Map = ass::EnumMap<KeyType, ValueType, KeyConverter>;
+    using Map = typename Self::MapType;
+    using KeyType = typename Map::KeyType;
+    using ValueType = typename Map::ValueType;
+    using KeyConverter = typename Map::KeyConverter;
 
-    constexpr size_t keys_count = KeyConverter::GetElementsCount();
+    constexpr size_t keys_count = Map::Capacity();
 
     std::array<KeyType, keys_count> shuffled_keys{};
     for (size_t i = 0; i != keys_count; ++i)
@@ -154,7 +127,7 @@ TYPED_TEST(EnumMapTest, AddRemove)
 
     auto make_value = [&](const KeyType key)
     {
-        return Parameters::MakeValue(KeyConverter::ConvertEnumToIndex(key));
+        return ValueType(Self::MakeValue(KeyConverter::ConvertEnumToIndex(key)));
     };
 
     constexpr unsigned kSeed = 1234;
