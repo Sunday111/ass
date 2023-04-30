@@ -7,22 +7,26 @@
 #include "ass/fixed_unordered_map.hpp"
 #include "test_helpers.hpp"
 
-struct TrivialKeyValueTraits
+namespace fixed_map_tests
 {
-    using Key = int;
-    using Value = int;
-    using Hasher = std::hash<int>;
 
-    static constexpr Key MakeKey(int index)
+template <typename Key>
+constexpr auto MakeKeyMaker()
+{
+    return [](size_t index)
     {
-        return static_cast<Key>((index + 3) * 7);
-    }
+        return static_cast<Key>((static_cast<int>(index) + 3) * 7);
+    };
+}
 
-    static constexpr Value MakeValue(int index)
+template <typename Value>
+constexpr auto MakeValueMaker()
+{
+    return [](size_t index)
     {
-        return static_cast<Value>((index - 5) * 7);
-    }
-};
+        return static_cast<Value>((static_cast<int>(index) - 5) * 7);
+    };
+}
 
 struct ConstexprHasher
 {
@@ -44,33 +48,12 @@ struct ConstexprHasher
     }
 };
 
-static_assert(!std::is_trivially_destructible_v<NonTrivialInteger<int>>);
-
-struct NonTrivialKeyValueTraits
-{
-    using Key = NonTrivialInteger<int>;
-    using Value = NonTrivialInteger<int>;
-    using Hasher = ConstexprHasher;
-
-    static Key MakeKey(int index)
-    {
-        return Key((index + 3) * 7);
-    }
-
-    static Value MakeValue(int index)
-    {
-        return Value((index - 5) * 7);
-    }
-};
-
-template <typename T>
-class FixedUnorderedMapTest : public testing::Test, public T
+template <typename MapType_>
+class FixedUnorderedMapTest : public testing::Test
 {
 public:
-    using Self = FixedUnorderedMapTest<T>;
+    using MapType = MapType_;
 };
-
-using Implementations = testing::Types<TrivialKeyValueTraits, NonTrivialKeyValueTraits>;
 
 class FixedUnorderedMapTestNames
 {
@@ -78,51 +61,87 @@ public:
     template <typename T>
     static std::string GetName(int)
     {
-        if (std::is_same<T, TrivialKeyValueTraits>()) return "Trivial";
-        if (std::is_same<T, NonTrivialKeyValueTraits>()) return "NonTrivial";
-        return "";
+        constexpr bool kTrivialKey = std::is_trivially_destructible_v<typename T::Key>;
+        constexpr bool kTrivialValue = std::is_trivially_destructible_v<typename T::Value>;
+        std::string result;
+        if constexpr (kTrivialKey ^ kTrivialValue)
+        {
+            if constexpr (kTrivialKey)
+            {
+                result = "NonTrivialVal";
+            }
+            else
+            {
+                result = "NonTrivialKey";
+            }
+        }
+        else if constexpr (kTrivialKey)
+        {
+            result = "Trivial";
+        }
+        else
+        {
+            result = "NonTrivial";
+        }
+
+        result += "_n";
+        result += std::to_string(T::Capacity());
+
+        return result;
     }
 };
+
+template <typename Capacity, typename Key, typename Value, typename Hasher>
+using MapAlias = ass::FixedUnorderedMap<Capacity::kValue, Key, Value, Hasher>;
+
+using test_helpers::TypedConstant;
+using Implementations = test_helpers::GParametrizeWithCombinations<
+    MapAlias,
+    /*Capacity*/ std::tuple<TypedConstant<10>, TypedConstant<20>, TypedConstant<100>>,
+    /* Keys */ std::tuple<int, NonTrivialInteger<int>>,
+    /* Values */ std::tuple<int, NonTrivialInteger<int>>,
+    /*Hashers*/ std::tuple<ConstexprHasher>>;
+
 TYPED_TEST_SUITE(FixedUnorderedMapTest, Implementations, FixedUnorderedMapTestNames);
 
 TYPED_TEST(FixedUnorderedMapTest, Full)
 {
-    constexpr size_t Capacity = 10;
-    using Self = typename std::decay_t<decltype(*this)>::Self;
-    using Key = typename Self::Key;
-    using Value = typename Self::Value;
-    using Hasher = typename Self::Hasher;
-    auto make_key = Self::MakeKey;
-    auto make_value = Self::MakeValue;
+    using Self = typename std::decay_t<decltype(*this)>;
+    using Map = typename Self::MapType;
+    using Key = typename Map::Key;
+    using Value = typename Map::Value;
+    auto make_key = MakeKeyMaker<Key>();
+    auto make_value = MakeValueMaker<Value>();
+    constexpr size_t Capacity = Map::Capacity();
 
-    ass::FixedUnorderedMap<Capacity, Key, Value, Hasher> m;
+    Map m;
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         ASSERT_EQ(m.Size(), i);
         m.Add(make_key(i), make_value(i));
 
-        for (int j = 0; j <= i; ++j)
+        for (size_t j = 0; j <= i; ++j)
         {
             ASSERT_TRUE(m.Contains(make_key(j)));
         }
 
-        for (int j = i + 1; j != Capacity; ++j)
+        for (size_t j = i + 1; j != Capacity; ++j)
         {
             ASSERT_FALSE(m.Contains(make_key(j)));
         }
     }
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         ASSERT_EQ(m.Get(make_key(i)), make_value(i));
     }
 
-    ASSERT_EQ(m.TryAdd(make_key(10)), nullptr);
-    ASSERT_NE(m.TryAdd(make_key(9)), nullptr);
-    ASSERT_EQ(*m.TryAdd(make_key(9)), make_value(9));
+    ASSERT_EQ(m.TryAdd(make_key(Capacity)), nullptr);
+    ASSERT_NE(m.TryAdd(make_key(Capacity - 1)), nullptr);
+    ASSERT_EQ(*m.TryAdd(make_key(Capacity - 1)), make_value(Capacity - 1));
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         ASSERT_EQ(m.Size(), Capacity - static_cast<size_t>(i));
         auto opt = m.Remove(make_key(i));
@@ -130,7 +149,7 @@ TYPED_TEST(FixedUnorderedMapTest, Full)
         ASSERT_EQ(*opt, make_value(i));
     }
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         auto opt = m.Remove(make_key(i));
         ASSERT_FALSE(opt.has_value());
@@ -139,17 +158,15 @@ TYPED_TEST(FixedUnorderedMapTest, Full)
 
 TYPED_TEST(FixedUnorderedMapTest, Iteration)
 {
-    constexpr size_t Capacity = 10;
-
-    using Self = typename std::decay_t<decltype(*this)>::Self;
-    using Key = typename Self::Key;
-    using Value = typename Self::Value;
-    using Hasher = typename Self::Hasher;
-    auto make_key = Self::MakeKey;
-    auto make_value = Self::MakeValue;
+    using Self = typename std::decay_t<decltype(*this)>;
+    using Map = typename Self::MapType;
+    using Key = typename Map::Key;
+    using Value = typename Map::Value;
+    auto make_key = MakeKeyMaker<Key>();
+    auto make_value = MakeValueMaker<Value>();
+    static constexpr size_t Capacity = Map::Capacity();
 
     using Converted = std::array<std::pair<Key, Value>, Capacity>;
-    using Map = ass::FixedUnorderedMap<Capacity, Key, Value, Hasher>;
 
     auto convert = [](auto& map) -> std::pair<Converted, size_t>
     {
@@ -177,14 +194,14 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
     };
 
     Map map{};
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         map.Add(make_key(i), make_value(i));
 
         auto [converted, count] = convert(map);
         ASSERT_EQ(static_cast<int>(count), i + 1);
 
-        for (int j = 0; j <= i; ++j)
+        for (size_t j = 0; j <= i; ++j)
         {
             const Key key = make_key(j);
             const Value value = make_value(j);
@@ -218,26 +235,26 @@ static constexpr bool ConstexprTest()
     constexpr size_t Capacity = 10;
     ass::FixedUnorderedMap<Capacity, int, int, ConstexprHasher> m{};
 
-    auto make_key = TrivialKeyValueTraits::MakeKey;
-    auto make_value = TrivialKeyValueTraits::MakeValue;
+    auto make_key = MakeKeyMaker<int>();
+    auto make_value = MakeValueMaker<int>();
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         assert(m.Size() == static_cast<size_t>(i));
         m.Add(make_key(i), make_value(i));
 
-        for (int j = 0; j <= i; ++j)
+        for (size_t j = 0; j <= i; ++j)
         {
             assert(m.Contains(make_key(j)));
         }
 
-        for (int j = i + 1; j != Capacity; ++j)
+        for (size_t j = i + 1; j != Capacity; ++j)
         {
             assert(!m.Contains(make_key(j)));
         }
     }
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         assert(m.Get(make_key(i)) == make_value(i));
     }
@@ -246,7 +263,7 @@ static constexpr bool ConstexprTest()
     assert(m.TryAdd(make_key(9)) != nullptr);
     assert(*m.TryAdd(make_key(9)) == make_value(9));
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         assert(m.Size() == Capacity - static_cast<size_t>(i));
         auto opt = m.Remove(make_key(i));
@@ -254,7 +271,7 @@ static constexpr bool ConstexprTest()
         assert(*opt == make_value(i));
     }
 
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         auto opt = m.Remove(make_key(i));
         assert(!opt.has_value());
@@ -267,8 +284,8 @@ static constexpr bool ConstexprIteratorTest()
 {
     constexpr size_t Capacity = 10;
 
-    auto make_key = TrivialKeyValueTraits::MakeKey;
-    auto make_value = TrivialKeyValueTraits::MakeValue;
+    auto make_key = MakeKeyMaker<int>();
+    auto make_value = MakeValueMaker<int>();
     using Key = decltype(make_key(0));
     using Value = decltype(make_value(0));
 
@@ -301,14 +318,14 @@ static constexpr bool ConstexprIteratorTest()
     };
 
     Map map{};
-    for (int i = 0; i != Capacity; ++i)
+    for (size_t i = 0; i != Capacity; ++i)
     {
         map.Add(make_key(i), make_value(i));
 
         auto [converted, count] = convert(map);
-        if (static_cast<int>(count) != i + 1) return false;
+        if (count != i + 1) return false;
 
-        for (int j = 0; j <= i; ++j)
+        for (size_t j = 0; j <= i; ++j)
         {
             const Key key = make_key(j);
             const Value value = make_value(j);
@@ -329,3 +346,4 @@ static_assert(ConstexprIteratorTest());
 // {
 //     ASSERT_TRUE(ConstexprIteratorTest());
 // }
+}  // namespace fixed_map_tests

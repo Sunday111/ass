@@ -8,14 +8,14 @@
 
 namespace ass::fixed_unordered_map_detail::trivially_destructible
 {
-template <size_t Capacity, typename Key_, typename Value_, typename Hasher_>
+template <size_t capacity, typename Key_, typename Value_, typename Hasher_>
 class FixedUnorderedMap
 {
 public:
     using Key = Key_;
     using Value = Value_;
     using Hasher = Hasher_;
-    using Self = FixedUnorderedMap<Capacity, Key, Value, Hasher>;
+    using Self = FixedUnorderedMap<capacity, Key, Value, Hasher>;
     using Iterator = FixedUnorderedMapIterator<Self>;
     using ConstIterator = FixedUnorderedMapIterator<std::add_const_t<Self>>;
     friend Iterator;
@@ -26,27 +26,32 @@ public:
     constexpr bool Contains(const Key key) const
     {
         const size_t index = FindIndexForKey(key);
-        return index != Capacity && has_index_.Get(index);
+        return index != capacity && has_index_.Get(index);
+    }
+
+    static constexpr size_t Capacity() noexcept
+    {
+        return capacity;
     }
 
     constexpr Value& Get(const Key key)
     {
         const size_t index = FindIndexForKey(key);
-        assert(index != Capacity && has_index_.Get(index));
+        assert(index != capacity && has_index_.Get(index));
         return values_[index];
     }
 
     constexpr const Value& Get(const Key key) const
     {
         const size_t index = FindIndexForKey(key);
-        assert(index != Capacity && has_index_.Get(index));
+        assert(index != capacity && has_index_.Get(index));
         return values_[index];
     }
 
     constexpr Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindIndexForKey(key);
-        if (index == Capacity)
+        if (index == capacity)
         {
             return nullptr;
         }
@@ -85,7 +90,7 @@ public:
     constexpr std::optional<Value> Remove(const Key key)
     {
         const size_t index = FindIndexForKey(key);
-        if (index != Capacity && has_index_.Get(index))
+        if (index != capacity && has_index_.Get(index))
         {
             has_index_.Set(index, false);
             return std::move(values_[index]);
@@ -140,13 +145,13 @@ protected:
     template <typename It, typename This>
     static constexpr It MakeEnd(This this_) noexcept
     {
-        return It(*this_, Capacity);
+        return It(*this_, capacity);
     }
 
     constexpr size_t FindIndexForKey(const Key key) const
     {
         const size_t start_index = ToIndex(Hasher{}(key));
-        for (size_t collision_index = 0; collision_index != Capacity; ++collision_index)
+        for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
             if (!has_index_.Get(index) || keys_[index] == key)
@@ -155,24 +160,24 @@ protected:
             }
         }
 
-        return Capacity;
+        return capacity;
     }
 
     static constexpr size_t ToIndex(const size_t value)
     {
-        if constexpr (Capacity == 0)
+        if constexpr (capacity == 0)
         {
             return 0;
         }
         else
         {
-            return value % Capacity;
+            return value % capacity;
         }
     }
 
     constexpr bool HasValueAtIndex(size_t index) const noexcept
     {
-        if (index < Capacity)
+        if (index < capacity)
         {
             return has_index_.Get(index);
         }
@@ -187,7 +192,7 @@ protected:
 
     constexpr size_t GetNextIndexWithValue(size_t prev_index) const noexcept
     {
-        assert(prev_index <= Capacity);
+        assert(prev_index <= capacity);
         return has_index_.CountContinuousZeroBits(prev_index + 1);
     }
 
@@ -207,8 +212,8 @@ protected:
     }
 
 private:
-    std::array<Key, Capacity> keys_{};
-    std::array<Value, Capacity> values_{};
-    FixedBitset<Capacity> has_index_{};
+    std::array<Key, capacity> keys_{};
+    std::array<Value, capacity> values_{};
+    FixedBitset<capacity> has_index_{};
 };
 }  // namespace ass::fixed_unordered_map_detail::trivially_destructible

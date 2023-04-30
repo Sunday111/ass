@@ -30,6 +30,8 @@ struct NonTrivialInteger
     T value{};
 };
 
+static_assert(!std::is_trivially_destructible_v<NonTrivialInteger<int>>);
+
 namespace test_helpers
 {
 namespace self_test
@@ -312,5 +314,11 @@ template <typename TypesTuple>
 using TupleToGoogleTestTypes = typename TupleToGoogleTestTypesImpl<TypesTuple>::Result;
 template <template <typename...> typename Template, typename... ArgsVariants>
 using GParametrizeWithCombinations = TupleToGoogleTestTypes<ParametrizeWithCombinations<Template, ArgsVariants...>>;
+
+template <auto value>
+struct TypedConstant
+{
+    static constexpr auto kValue = value;
+};
 
 }  // namespace test_helpers

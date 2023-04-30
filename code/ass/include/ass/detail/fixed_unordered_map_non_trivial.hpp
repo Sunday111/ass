@@ -9,24 +9,29 @@
 namespace ass::fixed_unordered_map_detail::non_trivially_destructible
 {
 
-template <size_t Capacity, typename Key_, typename Value_, typename Hasher_>
+template <size_t capacity, typename Key_, typename Value_, typename Hasher_>
 class FixedUnorderedMap
 {
 public:
     using Key = Key_;
     using Value = Value_;
     using Hasher = Hasher_;
-    using Self = FixedUnorderedMap<Capacity, Key, Value, Hasher>;
+    using Self = FixedUnorderedMap<capacity, Key, Value, Hasher>;
     using Iterator = FixedUnorderedMapIterator<Self>;
     using ConstIterator = FixedUnorderedMapIterator<std::add_const_t<Self>>;
     friend Iterator;
     friend ConstIterator;
 
+    static constexpr size_t Capacity() noexcept
+    {
+        return capacity;
+    }
+
     FixedUnorderedMap() = default;
 
     FixedUnorderedMap(const FixedUnorderedMap& another)
     {
-        for (size_t index = 0; index != Capacity; ++index)
+        for (size_t index = 0; index != capacity; ++index)
         {
             if (another.has_index_.Get(index))
             {
@@ -39,7 +44,7 @@ public:
 
     FixedUnorderedMap(FixedUnorderedMap&& another) noexcept
     {
-        for (size_t index = 0; index != Capacity; ++index)
+        for (size_t index = 0; index != capacity; ++index)
         {
             if (another.has_index_.Get(index))
             {
@@ -52,7 +57,7 @@ public:
 
     ~FixedUnorderedMap()
     {
-        if constexpr (Capacity != 0)
+        if constexpr (capacity != 0)
         {
             size_t index = GetFirstIndexWithValue();
 
@@ -71,7 +76,7 @@ public:
             return *this;
         }
 
-        for (size_t index = 0; index != Capacity; ++index)
+        for (size_t index = 0; index != capacity; ++index)
         {
             const bool this_has_index = has_index_.Get(index);
 
@@ -104,7 +109,7 @@ public:
             return *this;
         }
 
-        for (size_t index = 0; index != Capacity; ++index)
+        for (size_t index = 0; index != capacity; ++index)
         {
             const bool this_has_index = has_index_.Get(index);
 
@@ -153,7 +158,7 @@ public:
     Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindIndexForKey(key);
-        if (index == Capacity)
+        if (index == capacity)
         {
             return nullptr;
         }
@@ -249,13 +254,13 @@ protected:
     template <typename It, typename This>
     static constexpr It MakeEnd(This this_) noexcept
     {
-        return It(*this_, Capacity);
+        return It(*this_, capacity);
     }
 
     constexpr size_t FindIndexForKey(const Key key) const
     {
         const size_t start_index = ToIndex(Hasher{}(key));
-        for (size_t collision_index = 0; collision_index != Capacity; ++collision_index)
+        for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
 
@@ -265,24 +270,24 @@ protected:
             }
         }
 
-        return Capacity;
+        return capacity;
     }
 
     static constexpr size_t ToIndex(const size_t value)
     {
-        if constexpr (Capacity == 0)
+        if constexpr (capacity == 0)
         {
             return 0;
         }
         else
         {
-            return value % Capacity;
+            return value % capacity;
         }
     }
 
     constexpr bool HasValueAtIndex(const size_t index) const noexcept
     {
-        if (index < Capacity)
+        if (index < capacity)
         {
             return has_index_.Get(index);
         }
@@ -297,7 +302,7 @@ protected:
 
     size_t GetNextIndexWithValue(size_t prev_index) const noexcept
     {
-        assert(prev_index <= Capacity);
+        assert(prev_index <= capacity);
         return has_index_.CountContinuousZeroBits(prev_index + 1);
     }
 
@@ -339,9 +344,9 @@ protected:
     }
 
 private:
-    alignas(std::array<Key, Capacity>) std::array<uint8_t, sizeof(Key) * Capacity> keys_data_;
-    alignas(std::array<Value, Capacity>) std::array<uint8_t, sizeof(Value) * Capacity> values_data_;
-    FixedBitset<Capacity> has_index_{};
+    alignas(std::array<Key, capacity>) std::array<uint8_t, sizeof(Key) * capacity> keys_data_;
+    alignas(std::array<Value, capacity>) std::array<uint8_t, sizeof(Value) * capacity> values_data_;
+    FixedBitset<capacity> has_index_{};
 };
 
 }  // namespace ass::fixed_unordered_map_detail::non_trivially_destructible
