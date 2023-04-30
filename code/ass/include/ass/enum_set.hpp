@@ -25,16 +25,21 @@ public:
     using EnumConverter = Converter;
     friend Iterator;
 
+    // Adds new value to the set.
+    // Returns true if new value was actually added.
+    // Returns false if values was already there.
     constexpr bool Add(const T value)
     {
         const size_t index = Converter::ConvertEnumToIndex(value);
         return bits_.Set(index, true);
     }
 
-    constexpr void Remove(const T value)
+    // Removes value from the set.
+    // Returns true if value was in the set.
+    constexpr bool Remove(const T value)
     {
         const size_t index = Converter::ConvertEnumToIndex(value);
-        bits_.Set(index, false);
+        return bits_.Set(index, false);
     }
 
     constexpr bool Contains(const T value) const

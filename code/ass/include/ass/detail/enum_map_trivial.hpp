@@ -51,10 +51,9 @@ public:
 
     constexpr std::optional<Value> Remove(const Key key)
     {
-        if (Contains(key))
+        if (keys_.Remove(key))
         {
             const size_t index = Index(key);
-            keys_.Remove(key);
             return std::move(values_[index]);
         }
 
