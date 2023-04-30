@@ -211,3 +211,50 @@ TYPED_TEST(EnumMapTest, AddRemove)
         }
     }
 }
+
+class ValueWithDestructor
+{
+public:
+    ValueWithDestructor(size_t* counter, size_t value) : destructor_calls_counter_(counter), value_(value) {}
+    ValueWithDestructor(const ValueWithDestructor&) = delete;
+    ValueWithDestructor(ValueWithDestructor&& another) noexcept
+        : destructor_calls_counter_(another.destructor_calls_counter_),
+          value_(another.value_)
+    {
+        another.destructor_calls_counter_ = nullptr;
+    }
+    ValueWithDestructor& operator=(const ValueWithDestructor&) = delete;
+    ValueWithDestructor& operator=(ValueWithDestructor&& another) noexcept
+    {
+        destructor_calls_counter_ = another.destructor_calls_counter_;
+        value_ = another.value_;
+
+        another.destructor_calls_counter_ = nullptr;
+        return *this;
+    }
+    ~ValueWithDestructor()
+    {
+        if (destructor_calls_counter_)
+        {
+            *destructor_calls_counter_ += 1;
+        }
+    }
+
+    size_t* destructor_calls_counter_ = nullptr;
+    size_t value_;
+};
+
+TEST(EnumMap, ObjectDestructionTest)
+{
+    using Params = TestParams_TrivialContinuous;
+    using KeyType = typename Params::KeyType;
+    using KeyConverter = typename Params::KeyConverter;
+    using ValueType = ValueWithDestructor;
+    ass::EnumMap<KeyType, ValueType, KeyConverter> map{};
+
+    size_t dtor_counter = 0;
+    map.Emplace(KeyType::A, &dtor_counter, 42u);
+    ASSERT_EQ(dtor_counter, 0);
+    map.Remove(KeyType::A);
+    ASSERT_EQ(dtor_counter, 1);
+}

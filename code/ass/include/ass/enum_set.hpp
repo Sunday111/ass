@@ -25,10 +25,10 @@ public:
     using EnumConverter = Converter;
     friend Iterator;
 
-    constexpr void Add(const T value)
+    constexpr bool Add(const T value)
     {
         const size_t index = Converter::ConvertEnumToIndex(value);
-        bits_.Set(index, true);
+        return bits_.Set(index, true);
     }
 
     constexpr void Remove(const T value)
@@ -70,6 +70,25 @@ public:
     constexpr bool IsEmpty() const
     {
         return Size() == 0;
+    }
+
+    // {A, B, C} - {A, C} -> {B}.
+    // {A, C} - {A, B, C} -> {}.
+    constexpr EnumSet GetDifferenceFrom(const EnumSet& another) const
+    {
+        return GetIntersectionWith(another.GetComplement());
+    }
+
+    constexpr EnumSet GetIntersectionWith(const EnumSet& another) const
+    {
+        auto copy = *this;
+        copy.bits_ &= another.bits_;
+        return copy;
+    }
+
+    constexpr EnumSet operator-(const EnumSet& another) const
+    {
+        return GetDifferenceFrom(another);
     }
 
     // clang-format off

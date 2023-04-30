@@ -16,29 +16,25 @@ public:
 
     constexpr Value& GetOrAdd(const Key key, std::optional<Value> opt_value = std::nullopt)
     {
-        const size_t index = Index(key);
+        Value& value = values_[Index(key)];
 
-        if (keys_.Contains(key))
+        if (keys_.Add(key))
         {
             if (opt_value)
             {
-                values_[index] = std::move(*opt_value);
-            }
-        }
-        else
-        {
-            keys_.Add(key);
-            if (opt_value)
-            {
-                values_[index] = std::move(*opt_value);
+                value = std::move(*opt_value);
             }
             else
             {
-                values_[index] = Value{};
+                value = Value{};
             }
         }
+        else if (opt_value)
+        {
+            value = std::move(*opt_value);
+        }
 
-        return values_[index];
+        return value;
     }
 
     constexpr const Value& Get(const Key key) const

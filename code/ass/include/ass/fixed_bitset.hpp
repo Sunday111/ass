@@ -48,17 +48,22 @@ public:
         return (parts_[part_index] & (Part{1} << bit_index)) != 0;
     }
 
-    constexpr void Set(size_t index, bool value)
+    // Returns true if bit at specified index was flipped
+    constexpr bool Set(size_t index, bool value)
     {
         const auto [part_index, bit_index] = DecomposeIndex(index);
+        Part& part = parts_[part_index];
+        const Part part_prev_value = part;
         if (value)
         {
-            parts_[part_index] |= (Part{1} << bit_index);
+            part |= (Part{1} << bit_index);
         }
         else
         {
-            parts_[part_index] &= ~(Part{1} << bit_index);
+            part &= ~(Part{1} << bit_index);
         }
+
+        return part != part_prev_value;
     }
 
     constexpr size_t CountOnes() const
