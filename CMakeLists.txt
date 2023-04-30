@@ -7,5 +7,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-add_subdirectory(code/ass)
-add_subdirectory(code/ass_tests)
+add_subdirectory(ass)
+add_subdirectory(tests)
