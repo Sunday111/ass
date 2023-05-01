@@ -54,13 +54,15 @@ public:
         const auto [part_index, bit_index] = DecomposeIndex(index);
         Part& part = parts_[part_index];
         const Part part_prev_value = part;
+        Part mask{1};
+        mask <<= bit_index;
         if (value)
         {
-            part |= (Part{1} << bit_index);
+            part |= mask;
         }
         else
         {
-            part &= ~(Part{1} << bit_index);
+            part &= ~mask;
         }
 
         return part != part_prev_value;

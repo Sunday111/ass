@@ -36,19 +36,19 @@ TYPED_TEST_SUITE(CountOnesTest, Implementations, CountOnesTypesNames);
 
 TYPED_TEST(CountOnesTest, Full)
 {
-    using IntegerType = typename std::decay_t<decltype(*this)>::IntegerType;
+    using Bitset = typename std::decay_t<decltype(*this)>::IntegerType;
 
     std::random_device random_device;
     const unsigned seed = random_device();
     std::mt19937_64 generator(seed);
     std::uniform_int_distribution<uint64_t> distribution(
-        std::numeric_limits<IntegerType>::lowest(),
-        std::numeric_limits<IntegerType>::max());
+        std::numeric_limits<Bitset>::lowest(),
+        std::numeric_limits<Bitset>::max());
 
     for (size_t i = 0; i != 1000000; ++i)
     {
-        const IntegerType value = static_cast<IntegerType>(distribution(generator));
-        std::bitset<sizeof(IntegerType) * 8> bs(value);
+        const Bitset value = static_cast<Bitset>(distribution(generator));
+        std::bitset<sizeof(Bitset) * 8> bs(value);
         ASSERT_EQ(bs.count(), CountBits(value)) << "For value: " << std::hex << value << "(" << bs << ")";
     }
 }
