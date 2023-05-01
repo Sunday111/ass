@@ -17,7 +17,7 @@ jobs:
       matrix:
         cxx: [g++-11, clang++-14]
         build_type: [Debug, Release]
-        std: [17]
+        std: [17, 20]
         include:
           - cxx: g++-11
             install: sudo apt install g++-11
