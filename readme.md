@@ -1,6 +1,6 @@
 # Advanced and Standard Structures
 
-![Build and test](https://github.com/sunday111/ass/actions/workflows/linux.yml/badge.svg)
+![Badge](https://github.com/sunday111/ass/actions/workflows/linux.yml/badge.svg)
 
 Small header-only library with fixed data structures and utilities. Uses C++ 17 for convenience and depends on STL only.
 
