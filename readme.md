@@ -1,6 +1,6 @@
 # Advanced and Standard Structures
 
-https://github.com/sunda111/ass/actions/workflows/cmake.yml/badge.svg
+https://github.com/sunday111/ass/actions/workflows/cmake.yml/badge.svg
 
 Small header-only library with fixed data structures and utilities. Uses C++ 17 for convenience and depends on STL only.
 
