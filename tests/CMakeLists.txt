@@ -17,9 +17,6 @@ set(target_name ass_tests)
 add_executable(${target_name} ${target_headers} ${target_sources})
 target_link_libraries(${target_name} PUBLIC gtest_main ass)
 
-# get_cmake_property(_variableNames VARIABLES)
-# list(SORT _variableNames)
-
-# foreach(_variableName ${_variableNames})
-#     message("${_variableName}=${${_variableName}}")
-# endforeach()
+enable_testing()
+include(GoogleTest)
+gtest_discover_tests(${target_name})

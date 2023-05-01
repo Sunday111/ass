@@ -18,4 +18,8 @@ target_include_directories(${target_name} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/
 include(generic_compile_options)
 set_generic_compile_options(${target_name} INTERFACE)
 
-add_subdirectory(tests)
+option(ASS_ENABLE_TESTING "Build with tests" OFF)
+if (ASS_ENABLE_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
