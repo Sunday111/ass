@@ -232,6 +232,16 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
 
 static constexpr bool ConstexprTest()
 {
+#ifdef NDEBUG
+#define ASS_ENSURE(expr) \
+    if (!(expr))         \
+    {                    \
+        return false;    \
+    }
+#else
+#define ASS_ENSURE(expr) assert(expr);
+#endif
+
     constexpr size_t Capacity = 10;
     ass::FixedUnorderedMap<Capacity, int, int, ConstexprHasher> m{};
 
@@ -240,41 +250,41 @@ static constexpr bool ConstexprTest()
 
     for (size_t i = 0; i != Capacity; ++i)
     {
-        assert(m.Size() == static_cast<size_t>(i));
+        ASS_ENSURE(m.Size() == static_cast<size_t>(i));
         m.Add(make_key(i), make_value(i));
 
         for (size_t j = 0; j <= i; ++j)
         {
-            assert(m.Contains(make_key(j)));
+            ASS_ENSURE(m.Contains(make_key(j)));
         }
 
         for (size_t j = i + 1; j != Capacity; ++j)
         {
-            assert(!m.Contains(make_key(j)));
+            ASS_ENSURE(!m.Contains(make_key(j)));
         }
     }
 
     for (size_t i = 0; i != Capacity; ++i)
     {
-        assert(m.Get(make_key(i)) == make_value(i));
+        ASS_ENSURE(m.Get(make_key(i)) == make_value(i));
     }
 
-    assert(m.TryAdd(make_key(10)) == nullptr);
-    assert(m.TryAdd(make_key(9)) != nullptr);
-    assert(*m.TryAdd(make_key(9)) == make_value(9));
+    ASS_ENSURE(m.TryAdd(make_key(10)) == nullptr);
+    ASS_ENSURE(m.TryAdd(make_key(9)) != nullptr);
+    ASS_ENSURE(*m.TryAdd(make_key(9)) == make_value(9));
 
     for (size_t i = 0; i != Capacity; ++i)
     {
-        assert(m.Size() == Capacity - static_cast<size_t>(i));
+        ASS_ENSURE(m.Size() == Capacity - static_cast<size_t>(i));
         auto opt = m.Remove(make_key(i));
-        assert(opt.has_value());
-        assert(*opt == make_value(i));
+        ASS_ENSURE(opt.has_value());
+        ASS_ENSURE(*opt == make_value(i));
     }
 
     for (size_t i = 0; i != Capacity; ++i)
     {
         auto opt = m.Remove(make_key(i));
-        assert(!opt.has_value());
+        ASS_ENSURE(!opt.has_value());
     }
 
     return true;
