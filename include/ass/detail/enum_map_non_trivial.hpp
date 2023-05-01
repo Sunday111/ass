@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../enum_set.hpp"
+#include "enum_map_iterator_non_trivial.hpp"
 
 namespace ass::enum_map_detail::non_trivially_destructible
 {
@@ -11,6 +12,11 @@ public:
     using KeyType = Key;
     using ValueType = Value;
     using KeyConverter = Converter;
+    using Iterator = EnumMapIterator<EnumMap>;
+    using ConstIterator = EnumMapIterator<const EnumMap>;
+
+    friend Iterator;
+    friend ConstIterator;
 
     EnumMap() = default;
 
@@ -199,6 +205,37 @@ public:
         return kCapacity;
     }
 
+    // STL
+    constexpr Iterator begin() noexcept
+    {
+        return MakeBegin<Iterator>(this);
+    }
+
+    constexpr ConstIterator begin() const noexcept
+    {
+        return cbegin();
+    }
+
+    constexpr ConstIterator cbegin() const noexcept
+    {
+        return MakeBegin<ConstIterator>(this);
+    }
+
+    constexpr Iterator end() noexcept
+    {
+        return MakeEnd<Iterator>(this);
+    }
+
+    constexpr ConstIterator end() const noexcept
+    {
+        return cend();
+    }
+
+    constexpr ConstIterator cend() const noexcept
+    {
+        return MakeEnd<ConstIterator>(this);
+    }
+
 private:
     static constexpr size_t kCapacity = Converter::GetElementsCount();
     static constexpr size_t kBytesCountForValues = sizeof(Value) * kCapacity;
@@ -217,7 +254,19 @@ private:
     const Value& ValueRef(size_t index) const
     {
         const size_t offset = sizeof(Value) * index;
-        return *reinterpret_cast<Value*>(&values_[offset]);
+        return *reinterpret_cast<const Value*>(&values_[offset]);
+    }
+
+    template <typename It, typename This>
+    static constexpr It MakeBegin(This this_) noexcept
+    {
+        return It(*this_, this_->keys_.GetBitset().CountContinuousZeroBits());
+    }
+
+    template <typename It, typename This>
+    static constexpr It MakeEnd(This this_) noexcept
+    {
+        return It(*this_, kCapacity);
     }
 
 private:

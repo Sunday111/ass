@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <random>
 #include <string_view>
@@ -9,6 +10,7 @@
 
 #include "ass/enum/enum_as_index.hpp"
 #include "ass/enum_map.hpp"
+#include "gtest/gtest.h"
 #include "test_helpers.hpp"
 
 namespace enum_map_tests
@@ -102,7 +104,6 @@ TYPED_TEST(EnumMapTest, AddRemove)
     using KeyType = typename Map::KeyType;
     using ValueType = typename Map::ValueType;
     using KeyConverter = typename Map::KeyConverter;
-
     constexpr size_t keys_count = Map::Capacity();
 
     std::array<KeyType, keys_count> shuffled_keys{};
@@ -175,6 +176,106 @@ TYPED_TEST(EnumMapTest, AddRemove)
     }
 }
 
+TYPED_TEST(EnumMapTest, Iteration)
+{
+    using Self = std::decay_t<decltype(*this)>;
+    using Map = typename Self::MapType;
+    using KeyType = typename Map::KeyType;
+    using ValueType = typename Map::ValueType;
+    using KeyConverter = typename Map::KeyConverter;
+    constexpr size_t keys_count = Map::Capacity();
+
+    std::array<KeyType, keys_count> shuffled_keys{};
+    for (size_t i = 0; i != keys_count; ++i)
+    {
+        shuffled_keys[i] = KeyConverter::ConvertIndexToEnum(i);
+    }
+
+    auto make_value = [&](const KeyType key)
+    {
+        return ValueType(Self::MakeValue(KeyConverter::ConvertEnumToIndex(key)));
+    };
+
+    constexpr unsigned kSeed = 1234;
+    std::mt19937 rnd(kSeed);
+
+    std::shuffle(shuffled_keys.begin(), shuffled_keys.end(), rnd);
+
+    auto convert_map = [](const Map& m)
+    {
+        std::array<std::pair<KeyType, ValueType>, keys_count> converted{};
+        size_t index = 0;
+        for (auto kv : m)
+        {
+            converted[index].first = kv.key;
+            converted[index].second = kv.value;
+            index++;
+        }
+
+        return std::pair{converted, index};
+    };
+
+    auto converted_map_has_kv = [](const std::array<std::pair<KeyType, ValueType>, keys_count>& converted,
+                                   size_t count,
+                                   KeyType key,
+                                   ValueType value)
+    {
+        for (size_t i = 0; i != count; ++i)
+        {
+            for (auto& kv : converted)
+            {
+                if (kv.first == key && kv.second == value)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    };
+
+    Map m;
+    for (size_t i = 0; i != shuffled_keys.size(); ++i)
+    {
+        {
+            const KeyType key = shuffled_keys[i];
+            m.GetOrAdd(key, make_value(key));
+        }
+
+        auto [converted, converted_size] = convert_map(m);
+
+        for (size_t j = 0; j <= i; ++j)
+        {
+            const KeyType key = shuffled_keys[j];
+            const ValueType value = make_value(key);
+            ASSERT_TRUE(converted_map_has_kv(converted, converted_size, key, value));
+        }
+
+        for (size_t j = i + 1; j != shuffled_keys.size(); ++j)
+        {
+            const KeyType key = shuffled_keys[j];
+            const ValueType value = make_value(key);
+            ASSERT_FALSE(converted_map_has_kv(converted, converted_size, key, value));
+        }
+    }
+
+    for (auto kv : m)
+    {
+        kv.value *= ValueType(2);
+    }
+
+    {
+        auto [converted, converted_size] = convert_map(m);
+        ASSERT_EQ(converted.size(), shuffled_keys.size());
+        for (size_t j = 0; j != shuffled_keys.size(); ++j)
+        {
+            const KeyType key = shuffled_keys[j];
+            const ValueType value = make_value(key) * ValueType(2);
+            ASSERT_TRUE(converted_map_has_kv(converted, converted_size, key, value));
+        }
+    }
+}
+
 class ValueWithDestructor
 {
 public:
@@ -214,4 +315,5 @@ TEST(EnumMap, ObjectDestructionTest)
     }
     ASSERT_EQ(dtor_counter, 1);
 }
+
 }  // namespace enum_map_tests

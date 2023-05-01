@@ -27,6 +27,19 @@ struct NonTrivialInteger
         return value == another.value;
     }
 
+    constexpr NonTrivialInteger& operator*=(const NonTrivialInteger& arg)
+    {
+        value *= arg.value;
+        return *this;
+    }
+
+    constexpr NonTrivialInteger operator*(const NonTrivialInteger& arg) const
+    {
+        auto copy = *this;
+        copy *= arg;
+        return copy;
+    }
+
     T value{};
 };
 

@@ -96,6 +96,11 @@ public:
         return GetDifferenceFrom(another);
     }
 
+    constexpr const auto& GetBitset() const
+    {
+        return bits_;
+    }
+
     // clang-format off
     // STL
     auto begin() const { return Iterator(*this, bits_.CountContinuousZeroBits()); }
