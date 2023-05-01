@@ -14,7 +14,7 @@ template <typename T>
 class CountOnesTest : public testing::Test
 {
 public:
-    using Word = T;
+    using IntegerType = T;
 };
 
 using Implementations = testing::Types<uint8_t, uint16_t, uint32_t, uint64_t>;
@@ -36,19 +36,19 @@ TYPED_TEST_SUITE(CountOnesTest, Implementations, CountOnesTypesNames);
 
 TYPED_TEST(CountOnesTest, Full)
 {
-    using Word = typename std::decay_t<decltype(*this)>::Word;
+    using IntegerType = typename std::decay_t<decltype(*this)>::IntegerType;
 
     std::random_device random_device;
     const unsigned seed = random_device();
     std::mt19937_64 generator(seed);
     std::uniform_int_distribution<uint64_t> distribution(
-        std::numeric_limits<Word>::lowest(),
-        std::numeric_limits<Word>::max());
+        std::numeric_limits<IntegerType>::lowest(),
+        std::numeric_limits<IntegerType>::max());
 
     for (size_t i = 0; i != 1000000; ++i)
     {
-        const Word value = static_cast<Word>(distribution(generator));
-        std::bitset<sizeof(Word) * 8> bs(value);
+        const IntegerType value = static_cast<IntegerType>(distribution(generator));
+        std::bitset<sizeof(IntegerType) * 8> bs(value);
         ASSERT_EQ(bs.count(), CountBits(value)) << "For value: " << std::hex << value << "(" << bs << ")";
     }
 }
