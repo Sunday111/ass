@@ -23,7 +23,7 @@ jobs:
             install: sudo apt install g++-11
             build_type: Debug
           - cxx: clang++-14
-            install: sudo apt install clang-14
+            install: sudo apt install clang++-14
             build_type: Debug
 
     steps:
