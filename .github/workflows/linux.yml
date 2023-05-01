@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        cxx: [g++-11, clang-14]
+        cxx: [g++-11, clang++-14]
         build_type: [Debug, Release]
         std: [17]
         include:
@@ -45,6 +45,7 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: |
+        threads=`nproc`
         cmake --build ${{github.workspace}}/build --config ${{matrix.build_type}} --parallel $threads
 
     - name: Test
