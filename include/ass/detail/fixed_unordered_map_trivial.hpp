@@ -25,7 +25,7 @@ public:
 
     constexpr bool Contains(const Key key) const
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         return index != capacity && has_index_.Get(index);
     }
 
@@ -36,14 +36,14 @@ public:
 
     constexpr Value& Get(const Key key)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         assert(index != capacity && has_index_.Get(index));
         return values_[index];
     }
 
     constexpr const Value& Get(const Key key) const
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         assert(index != capacity && has_index_.Get(index));
         return values_[index];
     }
@@ -51,7 +51,7 @@ public:
     template <typename... Args>
     constexpr Value* TryEmplace(const Key key, Args&&... args)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindFreeIndexForKey(key);
         if (index == capacity)
         {
             return nullptr;
@@ -59,6 +59,7 @@ public:
 
         Value& value = values_[index];
         has_index_.Set(index, true);
+        was_deleted_.Set(index, false);
         value = Value(std::forward<Args>(args)...);
         return &value;
     }
@@ -73,7 +74,7 @@ public:
 
     constexpr Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindFreeIndexForKey(key);
         if (index == capacity)
         {
             return nullptr;
@@ -84,6 +85,7 @@ public:
         if (must_init)
         {
             keys_[index] = key;
+            was_deleted_.Set(index, false);
         }
 
         Value& value_ref = values_[index];
@@ -108,9 +110,10 @@ public:
 
     constexpr std::optional<Value> Remove(const Key key)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         if (index != capacity && has_index_.Set(index, false))
         {
+            was_deleted_.Set(index, true);
             return std::move(values_[index]);
         }
 
@@ -166,15 +169,45 @@ protected:
         return It(*this_, capacity);
     }
 
+    constexpr size_t FindKeyIndex(const Key key) const
+    {
+        constexpr bool stop_at_deleted = false;
+        return FindIndexForKey<stop_at_deleted>(key);
+    }
+
+    constexpr size_t FindFreeIndexForKey(const Key key) const
+    {
+        constexpr bool stop_at_deleted = true;
+        return FindIndexForKey<stop_at_deleted>(key);
+    }
+
+    template <bool kStopAtDeleted>
     constexpr size_t FindIndexForKey(const Key key) const
     {
         const size_t start_index = ToIndex(Hasher{}(key));
         for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
-            if (!has_index_.Get(index) || keys_[index] == key)
+            if constexpr (kStopAtDeleted)
             {
-                return index;
+                if (!has_index_.Get(index) || keys_[index] == key)
+                {
+                    return index;
+                }
+            }
+            else
+            {
+                if (has_index_.Get(index))
+                {
+                    if (keys_[index] == key)
+                    {
+                        return index;
+                    }
+                }
+                else if (!was_deleted_.Get(index))
+                {
+                    return index;
+                }
             }
         }
 
@@ -233,5 +266,6 @@ private:
     std::array<Key, capacity> keys_{};
     std::array<Value, capacity> values_{};
     FixedBitset<capacity> has_index_{};
+    FixedBitset<capacity> was_deleted_{};
 };
 }  // namespace ass::fixed_unordered_map_detail::trivially_destructible

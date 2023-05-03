@@ -137,20 +137,20 @@ public:
 
     constexpr bool Contains(const Key key) const
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         return HasValueAtIndex(index);
     }
 
     Value& Get(const Key key)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         assert(HasValueAtIndex(index));
         return GetValueAt(index);
     }
 
     const Value& Get(const Key key) const
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindKeyIndex(key);
         assert(HasValueAtIndex(key));
         return GetValueAt(index);
     }
@@ -158,15 +158,19 @@ public:
     template <typename... Args>
     constexpr Value* TryEmplace(const Key key, Args&&... args)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindFreeIndexForKey(key);
         if (index == capacity)
         {
             return nullptr;
         }
 
         Value& value = GetValueAt(index);
-        if (has_index_.Set(index))
+        const bool must_init = has_index_.Set(index);
+
+        if (must_init)
         {
+            Key& key_ref = GetKeyAt(index);
+            new (&key_ref) Key(key);
             new (&value) Value(std::forward<Args>(args)...);
         }
         else
@@ -187,7 +191,7 @@ public:
 
     Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
-        const size_t index = FindIndexForKey(key);
+        const size_t index = FindFreeIndexForKey(key);
         if (index == capacity)
         {
             return nullptr;
@@ -223,7 +227,7 @@ public:
 
     std::optional<Value> Remove(const Key key)
     {
-        if (const size_t index = FindIndexForKey(key); HasValueAtIndex(index))
+        if (const size_t index = FindKeyIndex(key); HasValueAtIndex(index))
         {
             std::optional<Value> moved = std::move(GetValueAt(index));
             EraseIndex(index);
@@ -282,16 +286,45 @@ protected:
         return It(*this_, capacity);
     }
 
+    constexpr size_t FindKeyIndex(const Key key) const
+    {
+        constexpr bool stop_at_deleted = false;
+        return FindIndexForKey<stop_at_deleted>(key);
+    }
+
+    constexpr size_t FindFreeIndexForKey(const Key key) const
+    {
+        constexpr bool stop_at_deleted = true;
+        return FindIndexForKey<stop_at_deleted>(key);
+    }
+
+    template <bool kStopAtDeleted>
     constexpr size_t FindIndexForKey(const Key key) const
     {
         const size_t start_index = ToIndex(Hasher{}(key));
         for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
-
-            if (!has_index_.Get(index) || GetKeyAt(index) == key)
+            if constexpr (kStopAtDeleted)
             {
-                return index;
+                if (!has_index_.Get(index) || GetKeyAt(index) == key)
+                {
+                    return index;
+                }
+            }
+            else
+            {
+                if (has_index_.Get(index))
+                {
+                    if (GetKeyAt(index) == key)
+                    {
+                        return index;
+                    }
+                }
+                else if (!IsIndexDeleted(index))
+                {
+                    return index;
+                }
             }
         }
 
@@ -361,11 +394,24 @@ protected:
         return *reinterpret_cast<const Value*>(&values_data_[offset]);
     }
 
+    bool IsIndexDeleted(size_t index) const
+    {
+        const size_t offset = GetOffsetForIndex<Key>(index);
+        return keys_data_[offset] == 0xFF;
+    }
+
+    void MarkIndexDeleted(size_t index)
+    {
+        const size_t offset = GetOffsetForIndex<Key>(index);
+        keys_data_[offset] = 0xFF;
+    }
+
     void EraseIndex(size_t index)
     {
         has_index_.Set(index, false);
         GetKeyAt(index).~Key();
         GetValueAt(index).~Value();
+        MarkIndexDeleted(index);
     }
 
 private:

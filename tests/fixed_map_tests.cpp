@@ -48,6 +48,17 @@ struct ConstexprHasher
     }
 };
 
+struct ConstexprHasherCollisions
+{
+    constexpr ConstexprHasherCollisions() = default;
+
+    template <typename T>
+    constexpr size_t operator()(const T&) const
+    {
+        return 42;
+    }
+};
+
 template <typename MapType_>
 class FixedUnorderedMapTest : public testing::Test
 {
@@ -87,6 +98,11 @@ public:
         result += "_n";
         result += std::to_string(T::Capacity());
 
+        if constexpr (std::is_same_v<ConstexprHasherCollisions, typename T::Hasher>)
+        {
+            result += "_collisions";
+        }
+
         return result;
     }
 };
@@ -100,7 +116,7 @@ using Implementations = test_helpers::GParametrizeWithCombinations<
     /*Capacity*/ std::tuple<TypedConstant<10>, TypedConstant<20>, TypedConstant<100>>,
     /* Keys */ std::tuple<int, NonTrivialInteger<int>>,
     /* Values */ std::tuple<int, NonTrivialInteger<int>>,
-    /*Hashers*/ std::tuple<ConstexprHasher>>;
+    /*Hashers*/ std::tuple<ConstexprHasher, ConstexprHasherCollisions>>;
 
 TYPED_TEST_SUITE(FixedUnorderedMapTest, Implementations, FixedUnorderedMapTestNames);
 
