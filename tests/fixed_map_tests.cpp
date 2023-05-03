@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <array>
 #include <climits>
 #include <limits>
+#include <random>
 #include <type_traits>
 #include <vector>
 
@@ -130,45 +132,69 @@ TYPED_TEST(FixedUnorderedMapTest, Full)
     auto make_value = MakeValueMaker<Value>();
     constexpr size_t Capacity = Map::Capacity();
 
+    constexpr unsigned seed = 42;
+    std::mt19937 rnd(seed);
+
+    std::vector<size_t> shuffled_indices;
+    for (size_t i = 0; i != Capacity; ++i)
+    {
+        shuffled_indices.push_back(i);
+    }
+
     Map m;
-
-    for (size_t i = 0; i != Capacity; ++i)
+    for (size_t iteration = 0; iteration != 10; ++iteration)
     {
-        ASSERT_EQ(m.Size(), i);
-        m.Add(make_key(i), make_value(i));
+        std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), rnd);
 
-        for (size_t j = 0; j <= i; ++j)
+        // Add elements
+        for (size_t i = 0; i != Capacity; ++i)
         {
-            ASSERT_TRUE(m.Contains(make_key(j)));
+            {
+                auto key = make_key(shuffled_indices[i]);
+                auto value = make_value(shuffled_indices[i]);
+                ASSERT_EQ(m.Size(), i);
+                m.Add(key, value);
+            }
+
+            for (size_t j = 0; j <= i; ++j)
+            {
+                ASSERT_TRUE(m.Contains(make_key(shuffled_indices[j])));
+            }
+
+            for (size_t j = i + 1; j != Capacity; ++j)
+            {
+                ASSERT_FALSE(m.Contains(make_key(shuffled_indices[j])));
+            }
         }
 
-        for (size_t j = i + 1; j != Capacity; ++j)
+        // Remove elements
+        std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), rnd);
+        for (size_t i = 0; i != Capacity; ++i)
         {
-            ASSERT_FALSE(m.Contains(make_key(j)));
+            auto key = make_key(shuffled_indices[i]);
+            auto value = make_value(shuffled_indices[i]);
+            ASSERT_NE(m.TryAdd(key), nullptr);
+            ASSERT_EQ(*m.TryAdd(key), value);
+            ASSERT_EQ(m.Get(key), value);
         }
-    }
 
-    for (size_t i = 0; i != Capacity; ++i)
-    {
-        ASSERT_EQ(m.Get(make_key(i)), make_value(i));
-    }
+        ASSERT_EQ(m.TryAdd(make_key(Capacity)), nullptr);
 
-    ASSERT_EQ(m.TryAdd(make_key(Capacity)), nullptr);
-    ASSERT_NE(m.TryAdd(make_key(Capacity - 1)), nullptr);
-    ASSERT_EQ(*m.TryAdd(make_key(Capacity - 1)), make_value(Capacity - 1));
+        for (size_t i = 0; i != Capacity; ++i)
+        {
+            auto key = make_key(shuffled_indices[i]);
+            auto value = make_value(shuffled_indices[i]);
+            ASSERT_EQ(m.Size(), Capacity - i);
+            auto opt = m.Remove(key);
+            ASSERT_TRUE(opt.has_value());
+            ASSERT_EQ(*opt, value);
+        }
 
-    for (size_t i = 0; i != Capacity; ++i)
-    {
-        ASSERT_EQ(m.Size(), Capacity - static_cast<size_t>(i));
-        auto opt = m.Remove(make_key(i));
-        ASSERT_TRUE(opt.has_value());
-        ASSERT_EQ(*opt, make_value(i));
-    }
-
-    for (size_t i = 0; i != Capacity; ++i)
-    {
-        auto opt = m.Remove(make_key(i));
-        ASSERT_FALSE(opt.has_value());
+        for (size_t i = 0; i != Capacity; ++i)
+        {
+            auto opt = m.Remove(make_key(i));
+            ASSERT_FALSE(opt.has_value());
+        }
     }
 }
 
