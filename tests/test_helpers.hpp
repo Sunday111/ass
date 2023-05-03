@@ -40,6 +40,19 @@ struct NonTrivialInteger
         return copy;
     }
 
+    constexpr NonTrivialInteger operator/=(const NonTrivialInteger& arg)
+    {
+        value /= arg.value;
+        return *this;
+    }
+
+    constexpr NonTrivialInteger operator/(const NonTrivialInteger& arg)
+    {
+        auto copy = *this;
+        copy /= arg;
+        return *this;
+    }
+
     T value{};
 };
 

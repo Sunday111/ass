@@ -208,6 +208,15 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
     auto make_value = MakeValueMaker<Value>();
     static constexpr size_t Capacity = Map::Capacity();
 
+    constexpr unsigned seed = 42;
+    std::mt19937 rnd(seed);
+
+    std::vector<size_t> shuffled_indices;
+    for (size_t i = 0; i != Capacity; ++i)
+    {
+        shuffled_indices.push_back(i);
+    }
+
     using Converted = std::array<std::pair<Key, Value>, Capacity>;
 
     auto convert = [](auto& map) -> std::pair<Converted, size_t>
@@ -236,38 +245,75 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
     };
 
     Map map{};
-    for (size_t i = 0; i != Capacity; ++i)
+
+    for (size_t iteration = 0; iteration != 10; ++iteration)
     {
-        map.Add(make_key(i), make_value(i));
-
-        auto [converted, count] = convert(map);
-        ASSERT_EQ(static_cast<int>(count), i + 1);
-
-        for (size_t j = 0; j <= i; ++j)
+        std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), rnd);
+        for (size_t i = 0; i != Capacity; ++i)
         {
-            const Key key = make_key(j);
-            const Value value = make_value(j);
-            ASSERT_TRUE(converted_has_kv(converted, key, value, count)) << "i = " << i << ", j = " << j;
-        }
-    }
+            {
+                auto key = make_key(shuffled_indices[i]);
+                auto value = make_value(shuffled_indices[i]);
+                map.Add(key, value);
+            }
 
-    // Now modify values of created map
-    {
-        int offset = 0;
+            auto [converted, count] = convert(map);
+            ASSERT_EQ(count, i + 1);
+
+            for (size_t j = 0; j <= i; ++j)
+            {
+                auto key = make_key(shuffled_indices[j]);
+                auto value = make_value(shuffled_indices[j]);
+                ASSERT_TRUE(converted_has_kv(converted, key, value, count)) << "i = " << i << ", j = " << j;
+            }
+        }
+
+        // Now modify values of created map
         for (auto kv : map)
         {
-            kv.value = Value(42 + offset);
-            ++offset;
+            kv.value *= Value(10);
         }
-    }
 
-    // And ensure values were actually written
-    {
-        int offset = 0;
+        // And ensure values were actually written
+        for (size_t i = 0; i != Capacity; ++i)
+        {
+            auto key = make_key(shuffled_indices[i]);
+            auto value = make_value(shuffled_indices[i]);
+            ASSERT_TRUE(map.Contains(key));
+            ASSERT_EQ(map.Get(key), value * Value(10));
+        }
+
+        // Revert values
         for (auto kv : map)
         {
-            ASSERT_EQ(kv.value, Value(42 + offset));
-            ++offset;
+            kv.value /= Value(10);
+        }
+
+        // Remove elements
+        std::shuffle(shuffled_indices.begin(), shuffled_indices.end(), rnd);
+        for (size_t i = 0; i != Capacity; ++i)
+        {
+            {
+                auto key = make_key(shuffled_indices[i]);
+                auto value = make_value(shuffled_indices[i]);
+                auto opt_value = map.Remove(key);
+                ASSERT_TRUE(opt_value.has_value());
+                ASSERT_EQ(*opt_value, value);
+            }
+
+            for (size_t j = 0; j <= i; ++j)
+            {
+                auto key = make_key(shuffled_indices[j]);
+                ASSERT_FALSE(map.Contains(key));
+            }
+
+            for (size_t j = i + 1; j != Capacity; ++j)
+            {
+                auto key = make_key(shuffled_indices[j]);
+                auto value = make_value(shuffled_indices[j]);
+                ASSERT_TRUE(map.Contains(key));
+                ASSERT_EQ(map.Get(key), value);
+            }
         }
     }
 }
