@@ -3,10 +3,8 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <limits>
 #include <type_traits>
 
-#include "../fixed_bitset.hpp"
 #include "../fixed_unordered_map.hpp"
 
 namespace ass::enum_as_index_detail

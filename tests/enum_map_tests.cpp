@@ -2,11 +2,9 @@
 #include <array>
 #include <memory>
 #include <random>
-#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "ass/enum/enum_as_index.hpp"
 #include "ass/enum_map.hpp"

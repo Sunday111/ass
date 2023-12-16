@@ -20,11 +20,13 @@ public:
 
     struct KeyValue
     {
-        const Key& key;
-        Value& value;
+        const Key& key;  // NOLINT
+        Value& value;    // NOLINT
     };
 
-    explicit FixedUnorderedMapIterator(Collection& collection, size_t index) : collection_(collection), index_(index) {}
+    explicit FixedUnorderedMapIterator(Collection& collection, size_t index) : collection_(&collection), index_(index)
+    {
+    }
 
     FixedUnorderedMapIterator(const FixedUnorderedMapIterator&) noexcept = default;
     FixedUnorderedMapIterator(FixedUnorderedMapIterator&&) noexcept = default;
@@ -34,7 +36,7 @@ public:
 
     bool operator==(const FixedUnorderedMapIterator& another) const noexcept
     {
-        return &collection_ == &another.collection_ && index_ == another.index_;
+        return collection_ == another.collection_ && index_ == another.index_;
     }
 
     bool operator!=(const FixedUnorderedMapIterator& another) const noexcept
@@ -44,19 +46,19 @@ public:
 
     FixedUnorderedMapIterator& operator++() noexcept
     {
-        index_ = collection_.GetNextIndexWithValue(index_);
+        index_ = collection_->GetNextIndexWithValue(index_);
         return *this;
     }
 
     KeyValue operator*() const noexcept
     {
-        auto& key = collection_.GetKeyAt(index_);
-        auto& value = collection_.GetValueAt(index_);
+        auto& key = collection_->GetKeyAt(index_);
+        auto& value = collection_->GetValueAt(index_);
         return KeyValue{key, value};
     }
 
 private:
-    Collection& collection_;
+    Collection* collection_;
     size_t index_ = 0;
 };
 }  // namespace ass::fixed_unordered_map_detail::non_trivially_destructible

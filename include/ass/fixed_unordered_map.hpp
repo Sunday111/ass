@@ -1,9 +1,7 @@
 #pragma once
 
-#include <array>
 #include <cassert>
 #include <functional>
-#include <optional>
 #include <type_traits>
 
 #include "detail/fixed_unordered_map_non_trivial.hpp"

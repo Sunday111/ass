@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "../enum/enum_as_index.hpp"
-
 namespace ass::enum_map_detail::non_trivially_destructible
 {
 
@@ -22,21 +20,21 @@ class EnumMapIterator
 public:
     struct KeyValue
     {
-        const KeyType key;
-        ValueType& value;
+        const KeyType key;  // NOLINT
+        ValueType& value;   // NOLINT
     };
 
 public:
-    EnumMapIterator(Map& map, size_t index) : map_(map), index_(index) {}
+    EnumMapIterator(Map& map, size_t index) : map_(&map), index_(index) {}
 
     KeyValue operator*() const
     {
-        return KeyValue{KeyConverter::ConvertIndexToEnum(index_), map_.ValueRef(index_)};
+        return KeyValue{KeyConverter::ConvertIndexToEnum(index_), map_->ValueRef(index_)};
     }
 
     EnumMapIterator& operator++() noexcept
     {
-        index_ = map_.keys_.GetBitset().CountContinuousZeroBits(index_ + 1);
+        index_ = map_->keys_.GetBitset().CountContinuousZeroBits(index_ + 1);
         return *this;
     }
 
@@ -51,7 +49,7 @@ public:
     }
 
 private:
-    Map& map_;
+    Map* map_ = nullptr;
     size_t index_;
 };
 }  // namespace ass::enum_map_detail::non_trivially_destructible

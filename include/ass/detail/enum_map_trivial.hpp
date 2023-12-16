@@ -3,7 +3,6 @@
 #include <array>
 #include <optional>
 
-#include "../enum/enum_as_index.hpp"
 #include "../enum_set.hpp"
 #include "enum_map_iterator_trivial.hpp"
 

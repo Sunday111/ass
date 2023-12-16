@@ -26,7 +26,7 @@ inline constexpr auto kBitScanTable = []()
     };
 
     uint8_t value = 0;
-    do
+    do  // NOLINT
     {
         table[value] = bit_scan_slow(value);
         value += 1;
