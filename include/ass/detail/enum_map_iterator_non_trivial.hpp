@@ -26,6 +26,11 @@ public:
 
 public:
     EnumMapIterator(Map& map, size_t index) : map_(&map), index_(index) {}
+    EnumMapIterator(EnumMapIterator&&) = delete;
+    EnumMapIterator(const EnumMapIterator&) = delete;
+    EnumMapIterator& operator=(const EnumMapIterator&) = delete;
+    EnumMapIterator& operator=(EnumMapIterator&&) = delete;
+    ~EnumMapIterator() = default;
 
     KeyValue operator*() const
     {
@@ -40,7 +45,7 @@ public:
 
     bool operator==(const EnumMapIterator& another) const
     {
-        return index_ == another.index_ && (&map_ == &another.map_);
+        return index_ == another.index_ && (map_ == another.map_);
     }
 
     bool operator!=(const EnumMapIterator& another) const
@@ -50,6 +55,6 @@ public:
 
 private:
     Map* map_ = nullptr;
-    size_t index_;
+    size_t index_ = 0;
 };
 }  // namespace ass::enum_map_detail::non_trivially_destructible
