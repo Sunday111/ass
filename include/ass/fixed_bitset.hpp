@@ -3,7 +3,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 
 #include "bit/bit_count_to_type.hpp"
 #include "bit/bit_scan_constexpr.hpp"

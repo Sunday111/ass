@@ -3,8 +3,6 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "../enum/enum_as_index.hpp"
-
 namespace ass::enum_map_detail::trivially_destructible
 {
 
@@ -22,8 +20,8 @@ class EnumMapIterator
 public:
     struct KeyValue
     {
-        const KeyType key;
-        ValueType& value;
+        const KeyType key;  // NOLINT
+        ValueType& value;   // NOLINT
     };
 
 public:

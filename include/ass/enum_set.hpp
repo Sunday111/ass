@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <type_traits>
 
 #include "enum/enum_as_index.hpp"
 #include "fixed_bitset.hpp"
@@ -120,17 +119,17 @@ public:
     using ValueType = typename Collection::ValueType;
     using Converter = typename Collection::EnumConverter;
 
-    constexpr explicit EnumSetIterator(const Collection& set, size_t index) : set_(set), index_(index) {}
+    constexpr explicit EnumSetIterator(const Collection& set, size_t index) : set_(&set), index_(index) {}
 
     constexpr EnumSetIterator& operator++()
     {
-        index_ = set_.bits_.CountContinuousZeroBits(index_ + 1);
+        index_ = set_->bits_.CountContinuousZeroBits(index_ + 1);
         return *this;
     }
 
     constexpr bool operator==(const EnumSetIterator& another) const
     {
-        return index_ == another.index_ && &set_ == &another.set_;
+        return index_ == another.index_ && set_ == another.set_;
     }
 
     constexpr bool operator!=(const EnumSetIterator& another) const
@@ -144,7 +143,7 @@ public:
     }
 
 private:
-    const Collection& set_;
+    const Collection* set_;
     size_t index_;
 };
 
