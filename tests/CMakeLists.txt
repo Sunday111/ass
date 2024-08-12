@@ -9,7 +9,7 @@ file(GLOB_RECURSE target_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 option(ASS_FETCH_GOOGLE_TESTS "Disable it if you already have google tests in your project" ON)
 
-if (CPP_REFLECTION_SHARED)
+if (ASS_FETCH_GOOGLE_TESTS)
   FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest
