@@ -148,7 +148,7 @@ private:
 };
 
 template <typename Head, typename... Tail>
-constexpr EnumSet<Head> MakeEnumSet(const Head head, const Tail... tail)
+[[nodiscard]] constexpr EnumSet<Head> MakeEnumSet(const Head head, const Tail... tail)
 {
     EnumSet<Head> result{};
     result.Add(head);
@@ -157,7 +157,7 @@ constexpr EnumSet<Head> MakeEnumSet(const Head head, const Tail... tail)
 }
 
 template <typename T>
-constexpr EnumSet<T> MakeEnumSet()
+[[nodiscard]] constexpr EnumSet<T> MakeEnumSet()
 {
     return EnumSet<T>{};
 }

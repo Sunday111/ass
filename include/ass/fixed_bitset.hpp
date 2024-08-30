@@ -39,6 +39,12 @@ template <size_t kSize>
 class FixedBitset
 {
 public:
+    static constexpr size_t kPartBitsCount = fixed_bitset_detail::GetOptimalPartSize(kSize);
+    static constexpr size_t kPartsCount = fixed_bitset_detail::GetRequiredPartsCount(kSize, kPartBitsCount);
+    static constexpr size_t kCapacity = kPartsCount * kPartBitsCount;
+    static constexpr size_t kUnusedBitsCount = kCapacity - kSize;
+    using Part = BitsCountToUnsignedIntT<kPartBitsCount>;
+
     constexpr FixedBitset() = default;
 
     constexpr bool Get(size_t index) const
@@ -196,6 +202,11 @@ public:
         return copy;
     }
 
+    constexpr const Part& GetPart(const size_t index) const
+    {
+        return parts_[index];
+    }
+
 private:
     static constexpr std::pair<size_t, size_t> DecomposeIndex(size_t index) noexcept
     {
@@ -205,12 +216,6 @@ private:
     }
 
 private:
-    static constexpr size_t kPartBitsCount = fixed_bitset_detail::GetOptimalPartSize(kSize);
-    static constexpr size_t kPartsCount = fixed_bitset_detail::GetRequiredPartsCount(kSize, kPartBitsCount);
-    static constexpr size_t kCapacity = kPartsCount * kPartBitsCount;
-    static constexpr size_t kUnusedBitsCount = kCapacity - kSize;
-    using Part = BitsCountToUnsignedIntT<kPartBitsCount>;
-
     std::array<Part, kPartsCount> parts_{};
 };
 }  // namespace ass
