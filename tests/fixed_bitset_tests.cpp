@@ -128,4 +128,36 @@ TEST(FixedBitsetTest, CheckFreeBitsAreIgnored)
     ASSERT_EQ(fbs.CountOnes(), 0);
     ASSERT_EQ(fbs.CountContinuousZeroBits(), bitset_capacity);
 }
+
+TEST(FixedBitsetTest, Fill)
+{
+    constexpr size_t capacity = 13;
+    FixedBitset<capacity> fbs;
+    fbs.Fill(1);
+    ASSERT_EQ(fbs.CountOnes(), capacity);
+}
+
+TEST(FixedBitsetTest, Flip)
+{
+    constexpr size_t capacity = 13;
+    FixedBitset<capacity> fbs;
+    fbs.Set(0, true);
+    fbs.Set(2, true);
+    fbs.Set(4, true);
+    fbs.Set(6, true);
+    fbs.Set(8, true);
+    fbs.Set(10, true);
+    fbs.Set(12, true);
+    ASSERT_EQ(fbs.CountOnes(), 7);
+
+    fbs.Flip();
+
+    ASSERT_TRUE(fbs.Get(1));
+    ASSERT_TRUE(fbs.Get(3));
+    ASSERT_TRUE(fbs.Get(5));
+    ASSERT_TRUE(fbs.Get(7));
+    ASSERT_TRUE(fbs.Get(9));
+    ASSERT_TRUE(fbs.Get(11));
+    ASSERT_EQ(fbs.CountOnes(), 6);
+}
 }  // namespace ass

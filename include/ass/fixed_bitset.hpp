@@ -207,6 +207,11 @@ public:
         return parts_[index];
     }
 
+    constexpr void Fill(bool value)
+    {
+        parts_.fill(std::numeric_limits<Part>::max());
+    }
+
 private:
     static constexpr std::pair<size_t, size_t> DecomposeIndex(size_t index) noexcept
     {
