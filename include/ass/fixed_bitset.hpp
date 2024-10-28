@@ -4,9 +4,9 @@
 #include <bit>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 
 #include "bit/bit_count_to_type.hpp"
-#include "bit/bit_scan_constexpr.hpp"
 
 namespace ass::fixed_bitset_detail
 {
@@ -110,7 +110,7 @@ public:
         for (size_t part_index = 0; part_index != parts_.size(); ++part_index)
         {
             const Part& part = parts_[part_index];
-            const size_t local = BitScanConstexpr(part);
+            const size_t local = std::countr_zero(part);
             result += local;
             if (local != kPartBitsCount)
             {
@@ -134,7 +134,7 @@ public:
             mask = ~mask;
             mask <<= ignored_bits;
             const Part part = parts_[part_index] & mask;
-            const size_t local = BitScanConstexpr(part);
+            const size_t local = std::countr_zero(part);
             if (local != kPartBitsCount)
             {
                 return result + local;
@@ -147,7 +147,7 @@ public:
         for (; part_index != parts_.size(); ++part_index)
         {
             const Part& part = parts_[part_index];
-            const size_t local = BitScanConstexpr(part);
+            const size_t local = std::countr_zero(part);
             result += local;
             if (local != kPartBitsCount)
             {
