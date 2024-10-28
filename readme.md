@@ -2,7 +2,7 @@
 
 ![Badge](https://github.com/sunday111/ass/actions/workflows/linux.yml/badge.svg)
 
-Small header-only library with fixed data structures and utilities. Uses C++ 17 for convenience and depends on STL only.
+Small header-only library with fixed data structures and utilities. Uses C++ 20 and depends on STL only. There is also a freezed branch that supports c++17: `cpp17`.
 
 In a few words
 - `ass::FixedUnorderedMap` - line `std::unordered_map` but is allocated on the stack and may be used in constexpr context (if both key and value types are trivially destructible).
