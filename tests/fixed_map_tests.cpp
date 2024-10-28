@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <climits>
 #include <limits>
 #include <random>
 #include <type_traits>
