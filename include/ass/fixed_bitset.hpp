@@ -1,12 +1,12 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cassert>
 #include <cstddef>
 
 #include "bit/bit_count_to_type.hpp"
 #include "bit/bit_scan_constexpr.hpp"
-#include "bit/count_ones.hpp"
 
 namespace ass::fixed_bitset_detail
 {
@@ -89,7 +89,7 @@ public:
             size_t last_part_index = kPartsCount - 1;
             for (size_t part_index = 0; part_index != last_part_index; ++part_index)
             {
-                n += CountBits(parts_[part_index]);
+                n += std::popcount(parts_[part_index]);
             }
 
             Part mask{};
@@ -99,7 +99,7 @@ public:
             Part part = parts_[last_part_index];
             part &= mask;
 
-            n += CountBits(part);
+            n += std::popcount(part);
         }
         return n;
     }

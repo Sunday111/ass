@@ -8,19 +8,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
       matrix:
-        cxx: [g++-11, clang++-14]
+        cxx: [g++-12, clang++-18]
         build_type: [Debug, Release]
-        std: [17, 20]
+        std: [20]
         include:
-          - cxx: g++-11
-            install: sudo apt install g++-11
+          - cxx: g++-12
+            install: sudo apt install g++-12
             build_type: Debug
-          - cxx: clang++-14
-            install: sudo apt install clang-14 libc++-14-dev libc++abi-14-dev
+          - cxx: clang++-18
+            install: sudo apt install clang-18 libc++-18-dev libc++abi-18-dev
             build_type: Debug
             cxxflags: -stdlib=libc++
 
