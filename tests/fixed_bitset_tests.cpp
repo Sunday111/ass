@@ -139,25 +139,31 @@ TEST(FixedBitsetTest, Fill)
 
 TEST(FixedBitsetTest, Flip)
 {
-    constexpr size_t capacity = 13;
-    FixedBitset<capacity> fbs;
-    fbs.Set(0, true);
-    fbs.Set(2, true);
-    fbs.Set(4, true);
-    fbs.Set(6, true);
-    fbs.Set(8, true);
-    fbs.Set(10, true);
-    fbs.Set(12, true);
-    ASSERT_EQ(fbs.CountOnes(), 7);
+    auto check_with_capacity = []<size_t capacity>(std::integral_constant<size_t, capacity>)
+    {
+        FixedBitset<capacity> fbs;
 
-    fbs.Flip();
+        for (size_t i = 0; i < capacity; i += 2)
+        {
+            fbs.Set(i, true);
+        }
 
-    ASSERT_TRUE(fbs.Get(1));
-    ASSERT_TRUE(fbs.Get(3));
-    ASSERT_TRUE(fbs.Get(5));
-    ASSERT_TRUE(fbs.Get(7));
-    ASSERT_TRUE(fbs.Get(9));
-    ASSERT_TRUE(fbs.Get(11));
-    ASSERT_EQ(fbs.CountOnes(), 6);
+        constexpr size_t even_count = (capacity + 1) / 2;
+        constexpr size_t odd_count = capacity / 2;
+        ASSERT_EQ(fbs.CountOnes(), even_count) << "capacity: " << capacity;
+        fbs.Flip();
+
+        ASSERT_EQ(fbs.CountOnes(), odd_count) << "capacity: " << capacity;
+        for (size_t i = 0; i != capacity; ++i)
+        {
+            ASSERT_EQ(fbs.Get(i), (i % 2) != 0);
+        }
+    };
+
+    check_with_capacity(std::integral_constant<size_t, 13>{});
+    check_with_capacity(std::integral_constant<size_t, 14>{});
+    check_with_capacity(std::integral_constant<size_t, 15>{});
+    check_with_capacity(std::integral_constant<size_t, 16>{});
+    check_with_capacity(std::integral_constant<size_t, 17>{});
 }
 }  // namespace ass

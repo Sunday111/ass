@@ -56,6 +56,7 @@ public:
     // Returns true if bit at specified index was flipped
     constexpr bool Set(size_t index, bool value)
     {
+        assert(index < kCapacity);
         const auto [part_index, bit_index] = DecomposeIndex(index);
         Part& part = parts_[part_index];
         const Part part_prev_value = part;
@@ -80,7 +81,7 @@ public:
         {
             for (Part p : parts_)
             {
-                n += CountBits(p);
+                n += std::popcount(p);
             }
         }
         else
