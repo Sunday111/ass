@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bit>
+#include <cassert>
 #include <span>
 
 #include "macro/empty_bases.hpp"
@@ -193,38 +194,54 @@ public:
         return CountOnesNonEmpty();
     }
 
+    [[nodiscard]] bool Get(size_t index) const
+    {
+        assert(index < GetSize());
+        const PurePart mask = PurePart{1} << (index % BitsPerPart());
+        return parts_[index / BitsPerPart()] & mask;  // NOLINT
+    }
+
+    void Set(size_t index, bool value) const
+        requires(!std::is_const_v<Part>)
+    {
+        assert(index < GetSize());
+        const Part mask = PurePart{1} << (index % BitsPerPart());
+        Part& part = parts_[index / BitsPerPart()];  // NOLINT
+
+        if (value)
+        {
+            part |= mask;
+        }
+        else
+        {
+            part &= ~mask;
+        }
+    }
+
 private:
     using PurePart = std::remove_const_t<Part>;
 
     [[nodiscard]] constexpr size_t CountOnesNonEmpty() const
     {
-        const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart();
         const size_t last_used_part_index = GetLastUsedPartIndex();
 
-        if (used_bits_in_last_part == BitsPerPart())
-        {
-            size_t n = 0;
-            size_t used_parts_count = last_used_part_index + 1;
-            for (size_t part_index = 0; part_index != used_parts_count; ++part_index)
-            {
-                n += std::popcount(parts_[part_index]);  // NOLINT
-            }
-            return n;
-        }
-
         size_t n = 0;
-        // Have to mask out unused bits
         for (size_t part_index = 0; part_index != last_used_part_index; ++part_index)
         {
             n += std::popcount(parts_[part_index]);  // NOLINT
         }
 
-        PurePart mask{};
-        mask = ~mask;
-        mask >>= BitsPerPart() - used_bits_in_last_part;
-
         PurePart part = parts_[last_used_part_index];  // NOLINT
-        part &= mask;
+
+        // Have to mask out unused bits (if any)
+        const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart();
+        if (used_bits_in_last_part != 0)
+        {
+            PurePart mask{};
+            mask = ~mask;
+            mask >>= BitsPerPart() - used_bits_in_last_part;
+            part &= mask;
+        }
 
         n += std::popcount(part);
 
@@ -232,25 +249,25 @@ private:
     }
 
     [[nodiscard]] static constexpr size_t GetLastUsedPartIndex() noexcept
-        requires(HasStaticCapacity())
+        requires(HasStaticSize())
     {
-        return GetSize() / BitsPerPart();
+        return (GetSize() - 1) / BitsPerPart();
     }
 
     [[nodiscard]] constexpr size_t GetLastUsedPartIndex() const noexcept
-        requires(!HasStaticCapacity())
+        requires(!HasStaticSize())
     {
-        return GetSize() / BitsPerPart();
+        return (GetSize() - 1) / BitsPerPart();
     }
 
     [[nodiscard]] static constexpr size_t GetUsedBitsCountInLastUsedPart() noexcept
-        requires(HasStaticCapacity())
+        requires(HasStaticSize())
     {
         return GetSize() % BitsPerPart();
     }
 
     [[nodiscard]] constexpr size_t GetUsedBitsCountInLastUsedPart() const noexcept
-        requires(!HasStaticCapacity())
+        requires(!HasStaticSize())
     {
         return GetSize() % BitsPerPart();
     }

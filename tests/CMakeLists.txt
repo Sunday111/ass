@@ -27,3 +27,7 @@ set_generic_compile_options(${target_name} INTERFACE)
 enable_testing()
 include(GoogleTest)
 gtest_discover_tests(${target_name})
+
+if(MSVC)
+  target_compile_options(${target_name} PRIVATE /bigobj)
+endif()
