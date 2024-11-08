@@ -72,7 +72,7 @@ struct BitSpanPartsCountAndSize
     size_t size = 0;
 };
 
-template <std::integral Part, BitSpanStaticExtents static_extents = BitSpanStaticExtents{}>
+template <std::unsigned_integral Part, BitSpanStaticExtents static_extents = BitSpanStaticExtents{}>
     requires(static_extents.size == std::dynamic_extent || static_extents.parts_count == std::dynamic_extent ||
              static_extents.size <= (8 * static_extents.parts_count * sizeof(Part)))
 class ASS_EMPTY_BASES BitSpan : public bit_span_detail::SizeContainer<static_extents.size>,
@@ -171,27 +171,20 @@ public:
     }
 
     [[nodiscard]] constexpr size_t CountOnes() const
-        requires(HasStaticSize())
     {
-        if constexpr (GetSize() == 0)
-        {
-            return 0;
-        }
-        else
-        {
-            return CountOnesNonEmpty();
-        }
-    }
-
-    [[nodiscard]] constexpr size_t CountOnes() const
-        requires(!HasStaticSize())
-    {
-        if (GetSize() == 0)
-        {
-            return 0;
-        }
+        if constexpr (static_extents.size == 0) return 0;
+        if (GetSize() == 0) return 0;
 
         return CountOnesNonEmpty();
+    }
+
+    constexpr void Flip() const
+        requires(!std::is_const_v<Part>)
+    {
+        if constexpr (static_extents.size == 0) return;
+        if (GetSize() == 0) return;
+
+        FlipNonEmpty();
     }
 
     [[nodiscard]] bool Get(size_t index) const
@@ -221,6 +214,38 @@ public:
 private:
     using PurePart = std::remove_const_t<Part>;
 
+    constexpr void FlipNonEmpty() const
+    {
+        const size_t last_used_part_index = GetLastUsedPartIndex();
+
+        for (size_t part_index = 0; part_index != last_used_part_index; ++part_index)
+        {
+            parts_[part_index] = ~parts_[part_index];  // NOLINT
+        }
+
+        PurePart part = parts_[last_used_part_index];  // NOLINT
+
+        // Have to mask out unused bits (if any)
+        const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart();
+        if (used_bits_in_last_part != 0)
+        {
+            PurePart unused_bits_mask{};
+            unused_bits_mask = ~unused_bits_mask;
+            unused_bits_mask <<= used_bits_in_last_part;
+
+            PurePart used_bits_mask = unused_bits_mask;
+            used_bits_mask = ~used_bits_mask;
+
+            part = ((~part) & used_bits_mask) | (part & unused_bits_mask);
+        }
+        else
+        {
+            part = ~part;
+        }
+
+        parts_[last_used_part_index] = part;  // NOLINT
+    }
+
     [[nodiscard]] constexpr size_t CountOnesNonEmpty() const
     {
         const size_t last_used_part_index = GetLastUsedPartIndex();
@@ -237,8 +262,7 @@ private:
         const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart();
         if (used_bits_in_last_part != 0)
         {
-            PurePart mask{};
-            mask = ~mask;
+            PurePart mask = ~PurePart{};
             mask >>= BitsPerPart() - used_bits_in_last_part;
             part &= mask;
         }
@@ -275,5 +299,51 @@ private:
 private:
     Part* parts_ = nullptr;
 };
+
+template <std::unsigned_integral Part, size_t span_extent>
+    requires(span_extent == std::dynamic_extent)
+[[nodiscard]] constexpr auto ToBitSpan(std::span<Part, span_extent> parts, BitSpanSize size)
+{
+    assert(size.size <= parts.size_bytes() * 8);
+    return BitSpan<Part>{parts.data(), {.parts_count = parts.size(), .size = size.size}};
+}
+
+template <std::unsigned_integral Part, size_t span_extent>
+    requires(span_extent != std::dynamic_extent)
+[[nodiscard]] constexpr auto ToBitSpan(std::span<Part, span_extent> parts, BitSpanSize size)
+{
+    assert(size.size <= parts.size_bytes() * 8);
+    return BitSpan<Part, {.parts_count = span_extent}>{parts.data(), {.size = size.size}};
+}
+
+template <BitSpanSize size, std::unsigned_integral Part, size_t span_extent>
+    requires(span_extent != std::dynamic_extent)
+[[nodiscard]] constexpr auto ToBitSpan(std::span<Part, span_extent> parts)
+{
+    static_assert(size.size <= parts.size_bytes() * 8);
+    return BitSpan<Part, {.parts_count = span_extent, .size = size.size}>{parts.data()};
+}
+
+template <BitSpanSize size, std::unsigned_integral Part, size_t span_extent>
+    requires(span_extent == std::dynamic_extent)
+[[nodiscard]] constexpr auto ToBitSpan(std::span<Part, span_extent> parts)
+{
+    assert(size.size <= parts.size_bytes() * 8);
+    return BitSpan<Part, {.size = size.size}>{parts.data(), {.parts_count = parts.size()}};
+}
+
+template <BitSpanSize size, std::unsigned_integral Part, size_t array_size>
+[[nodiscard]] constexpr auto ToBitSpan(const std::array<Part, array_size>& parts)
+{
+    static_assert(size.size <= array_size * sizeof(Part) * 8);
+    return BitSpan<const Part, {.parts_count = array_size, .size = size.size}>{parts.data()};
+}
+
+template <std::unsigned_integral Part, size_t array_size>
+[[nodiscard]] constexpr auto ToBitSpan(const std::array<Part, array_size>& parts, BitSpanSize size)
+{
+    assert(size.size <= array_size * sizeof(Part) * 8);
+    return BitSpan<const Part, {.parts_count = array_size}>{parts.data(), {.size = size.size}};
+}
 
 }  // namespace ass

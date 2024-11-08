@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 
 #include "ass/bit_span.hpp"
@@ -117,7 +118,7 @@ static_assert(std::same_as<
               decltype(MakeSequenceForPartsCount<uint8_t, std::dynamic_extent>())>);
 
 template <typename F>
-void ParametrizeTest(F&& callable)  // NOLINT
+void ParametrizeBitSpanTest(F&& callable)  // NOLINT
 {
     auto with_runtime_extents = [&]<typename PartType, size_t static_parts_count, size_t static_size>()
     {
@@ -226,22 +227,43 @@ TEST(BitSpanTest, DynamicPartsCountAndSizeCtor)
     ASSERT_EQ(bit_span.GetCapacity(), 64);
 }
 
-TEST(BitSpanTest, CountOnesFullStatic)
+template <typename T>
+void PrintSpanInfo(const T& bit_span)
+{
+    std::cout << "Part size: " << bit_span.BitsPerPart() << ". ";
+    std::cout << "Capacity: " << bit_span.GetCapacity() << ". ";
+    std::cout << "Size: " << bit_span.GetSize() << ". ";
+    std::cout << '\n';
+}
+
+template <typename Part, BitSpanStaticExtents static_extents>
+[[nodiscard]] constexpr auto AdaptBufferForBitSpan(std::vector<uint8_t>& buffer, size_t dyn_parts_count)
+{
+    buffer.clear();
+    if constexpr (static_extents.parts_count == std::dynamic_extent)
+    {
+        buffer.resize(dyn_parts_count * sizeof(Part), 0);
+        return std::span{reinterpret_cast<Part*>(buffer.data()), dyn_parts_count};
+    }
+    else
+    {
+        buffer.resize(static_extents.parts_count * sizeof(Part), 0);
+        return std::span<Part, static_extents.parts_count>{
+            reinterpret_cast<Part*>(buffer.data()),  // NOLINT
+            static_extents.parts_count};
+    }
+}
+
+TEST(BitSpanTest, CountOnes)
 {
     std::vector<uint8_t> buffer;
-    size_t combinations_count = 0;
-    ParametrizeTest(
-        [&]<typename PartType, BitSpanStaticExtents static_extents>(size_t parts_count, size_t size)
+    ParametrizeBitSpanTest(
+        [&]<typename Part, BitSpanStaticExtents static_extents>(size_t parts_count, size_t size)
         {
-            buffer.clear();
-            buffer.resize(1000, 0);
-            auto bit_span =
-                MakeBitSpan<PartType, static_extents>(reinterpret_cast<PartType*>(buffer.data()), parts_count, size);
-            std::cout << "Part size: " << bit_span.BitsPerPart() << ". ";
-            std::cout << "Capacity: " << bit_span.GetCapacity() << ". ";
-            std::cout << "Size: " << bit_span.GetSize() << ". ";
-            std::cout << '\n';
-            ++combinations_count;
+            auto parts_view = AdaptBufferForBitSpan<Part, static_extents>(buffer, parts_count);
+            auto bit_span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
+            assert(bit_span.GetPartsCount() * sizeof(Part) <= buffer.size());
+            PrintSpanInfo(bit_span);
 
             for (size_t i = 0; i < buffer.size() * 8; i += 2)
             {
@@ -251,12 +273,6 @@ TEST(BitSpanTest, CountOnesFullStatic)
 
             const size_t even_count = (bit_span.GetSize() + 1) / 2;
             const size_t odd_count = bit_span.GetSize() / 2;
-
-            if (bit_span.CountOnes() != even_count)
-            {
-                static volatile int sssa = 0;
-                sssa = sssa + 1;
-            }
 
             ASSERT_EQ(bit_span.CountOnes(), even_count);
 
@@ -273,6 +289,109 @@ TEST(BitSpanTest, CountOnesFullStatic)
                 ASSERT_EQ(bit_value, is_odd);
             }
         });
-    std::cout << "Combinations count" << combinations_count << '\n';
+}
+
+TEST(BitSpanTest, Flip)
+{
+    std::array<uint8_t, 2> data{0b0101'0101, 0b0101'0101};
+    auto bit_span = BitSpan<uint8_t>(data.data(), {.parts_count = 2, .size = 4});
+    bit_span.Flip();
+    ASSERT_EQ(data[0], 0b0101'1010);
+    ASSERT_EQ(data[1], 0b0101'0101);
+
+    std::vector<uint8_t> buffer;
+    ParametrizeBitSpanTest(
+        [&]<typename Part, BitSpanStaticExtents static_extents>(size_t parts_count, size_t size)
+        {
+            auto parts_view = AdaptBufferForBitSpan<Part, static_extents>(buffer, parts_count);
+            auto bit_span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
+            assert(bit_span.GetPartsCount() * sizeof(Part) <= buffer.size());
+            PrintSpanInfo(bit_span);
+
+            ASSERT_EQ(bit_span.CountOnes(), 0);
+            bit_span.Flip();
+            ASSERT_EQ(bit_span.CountOnes(), bit_span.GetSize());
+
+            for (size_t i = 0; i != buffer.size() * 8; ++i)
+            {
+                auto& part = buffer[i / 8];
+                bool bit_value = part & (1 << (i % 8));
+                if (i < bit_span.GetSize())
+                {
+                    ASSERT_TRUE(bit_value);
+                }
+                else
+                {
+                    ASSERT_FALSE(bit_value);
+                }
+            }
+        });
+}
+
+TEST(BitSpanTest, ToBitSpan)
+{
+    static constexpr std::array<uint8_t, 2> data{0b0011'1000, 0b1000'1110};
+    constexpr auto static_extent_span = std::span{data};
+    constexpr auto dynamic_extent_span = std::span<const uint8_t>{data.data(), data.size()};
+
+    // from std::array and static size
+    {
+        constexpr auto bit_span = ToBitSpan<{.size = 16}>(data);
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
+
+    // from std::array and dynamic size
+    {
+        constexpr auto bit_span = ToBitSpan(data, {.size = 16});
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(!bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
+
+    // static extent of parts span and static size value
+    {
+        constexpr auto bit_span = ToBitSpan<{.size = 16}>(static_extent_span);
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
+
+    // static extent of parts span and dynamic size value
+    {
+        constexpr auto bit_span = ToBitSpan(static_extent_span, {.size = 16});
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(!bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
+
+    // dynamic extent of parts span and static size value
+    {
+        constexpr auto bit_span = ToBitSpan<{.size = 16}>(dynamic_extent_span);
+        static_assert(!bit_span.HasStaticCapacity());
+        static_assert(bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
+
+    // dynamic extent of parts span and dynamic size value
+    {
+        constexpr auto bit_span = ToBitSpan(dynamic_extent_span, {.size = 16});
+        static_assert(!bit_span.HasStaticCapacity());
+        static_assert(!bit_span.HasStaticSize());
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+    }
 }
 }  // namespace ass
