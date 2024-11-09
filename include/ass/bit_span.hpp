@@ -128,7 +128,7 @@ public:
         return static_extents.size != std::dynamic_extent;
     }
 
-    [[nodiscard]] static consteval size_t GetSize() noexcept
+    [[nodiscard]] static constexpr size_t GetSize() noexcept
         requires(HasStaticSize())
     {
         return static_extents.size;
@@ -140,12 +140,12 @@ public:
         return this->size_;
     }
 
-    [[nodiscard]] static consteval bool HasStaticCapacity()
+    [[nodiscard]] static constexpr bool HasStaticCapacity()
     {
         return static_extents.parts_count != std::dynamic_extent;
     }
 
-    [[nodiscard]] static consteval size_t GetPartsCount() noexcept
+    [[nodiscard]] static constexpr size_t GetPartsCount() noexcept
         requires(HasStaticCapacity())
     {
         return static_extents.parts_count;
