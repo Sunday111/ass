@@ -330,28 +330,68 @@ TEST(BitSpanTest, Flip)
 
 TEST(BitSpanTest, ToBitSpan)
 {
+    std::array<uint8_t, 2> non_const_data{0b0011'1000, 0b1000'1110};
     static constexpr std::array<uint8_t, 2> data{0b0011'1000, 0b1000'1110};
     constexpr auto static_extent_span = std::span{data};
     constexpr auto dynamic_extent_span = std::span<const uint8_t>{data.data(), data.size()};
 
-    // from std::array and static size
+    auto test_bits = [&](const auto& bit_span) -> bool
+    {
+        for (size_t i = 0; i != bit_span.GetSize(); ++i)
+        {
+            bool actual = bit_span.Get(i);
+            bool expected = (data[i / 8] & (1 << (i % 8))) != 0;
+            if (actual != expected) return false;
+        }
+
+        return true;
+    };
+
+    // from const std::array and static size
     {
         constexpr auto bit_span = ToBitSpan<{.size = 16}>(data);
         static_assert(bit_span.HasStaticCapacity());
         static_assert(bit_span.HasStaticSize());
+        static_assert(!bit_span.kCanModifyData);
+        static_assert(bit_span.GetSize() == 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
+    }
+
+    // from non const std::array and static size
+    {
+        const auto bit_span = ToBitSpan<{.size = 16}>(non_const_data);
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(bit_span.HasStaticSize());
+        static_assert(bit_span.kCanModifyData);
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
     }
 
-    // from std::array and dynamic size
+    // from const std::array and dynamic size
     {
         constexpr auto bit_span = ToBitSpan(data, {.size = 16});
         static_assert(bit_span.HasStaticCapacity());
         static_assert(!bit_span.HasStaticSize());
+        static_assert(!bit_span.kCanModifyData);
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
+    }
+
+    // from non-const std::array and dynamic size
+    {
+        const auto bit_span = ToBitSpan(non_const_data, {.size = 16});
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(!bit_span.HasStaticSize());
+        static_assert(bit_span.kCanModifyData);
+        ASSERT_EQ(bit_span.GetSize(), 16);
+        static_assert(bit_span.GetPartsCount() == 2);
+        static_assert(bit_span.GetCapacity() == 16);
+        ASSERT_TRUE(test_bits(bit_span));
     }
 
     // static extent of parts span and static size value
@@ -362,6 +402,7 @@ TEST(BitSpanTest, ToBitSpan)
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
     }
 
     // static extent of parts span and dynamic size value
@@ -372,6 +413,7 @@ TEST(BitSpanTest, ToBitSpan)
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
     }
 
     // dynamic extent of parts span and static size value
@@ -382,6 +424,7 @@ TEST(BitSpanTest, ToBitSpan)
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
     }
 
     // dynamic extent of parts span and dynamic size value
@@ -392,6 +435,49 @@ TEST(BitSpanTest, ToBitSpan)
         static_assert(bit_span.GetSize() == 16);
         static_assert(bit_span.GetPartsCount() == 2);
         static_assert(bit_span.GetCapacity() == 16);
+        static_assert(test_bits(bit_span));
+    }
+}
+
+TEST(BitSpanTest, VectorToBitSpan)
+{
+    std::vector<uint8_t> data{0b0011'1000, 0b1000'1110};
+    const auto& const_data = data;
+
+    auto test_bits = [&](const auto& bit_span) -> bool
+    {
+        for (size_t i = 0; i != bit_span.GetSize(); ++i)
+        {
+            bool actual = bit_span.Get(i);
+            bool expected = (data[i / 8] & (1 << (i % 8))) != 0;
+            if (actual != expected) return false;
+        }
+
+        return true;
+    };
+
+    // deduced (dynamic) size and capacity
+    {
+        [[maybe_unused]] const auto bit_span = ToBitSpan(data);
+        static_assert(!bit_span.HasStaticCapacity());
+        static_assert(!bit_span.HasStaticSize());
+        static_assert(bit_span.kCanModifyData);
+        ASSERT_EQ(bit_span.GetSize(), 16);
+        ASSERT_EQ(bit_span.GetPartsCount(), 2);
+        ASSERT_EQ(bit_span.GetCapacity(), 16);
+        ASSERT_TRUE(test_bits(bit_span));
+    }
+
+    // static size, deduced capacity
+    {
+        [[maybe_unused]] const auto bit_span = ToBitSpan<{.size = 13}>(data);
+        static_assert(bit_span.HasStaticCapacity());
+        static_assert(bit_span.HasStaticSize());
+        static_assert(bit_span.kCanModifyData);
+        static_assert(bit_span.GetSize() == 13);
+        ASSERT_EQ(bit_span.GetPartsCount(), 2);
+        ASSERT_EQ(bit_span.GetCapacity(), 16);
+        ASSERT_TRUE(test_bits(bit_span));
     }
 }
 }  // namespace ass

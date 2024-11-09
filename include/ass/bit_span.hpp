@@ -3,11 +3,48 @@
 #include <bit>
 #include <cassert>
 #include <span>
+#include <vector>
 
 #include "macro/empty_bases.hpp"
 
 namespace ass::bit_span_detail
 {
+
+template <typename T>
+struct IsUintStdArrayT : std::false_type
+{
+};
+
+template <std::unsigned_integral T, size_t N>
+struct IsUintStdArrayT<std::array<T, N>> : std::true_type
+{
+};
+
+template <std::unsigned_integral T, size_t N>
+struct IsUintStdArrayT<const std::array<T, N>> : std::true_type
+{
+};
+
+template <typename T>
+concept uint_std_array = IsUintStdArrayT<T>::value;
+
+template <typename T>
+struct IsUintStdVectorT : std::false_type
+{
+};
+
+template <std::unsigned_integral T, typename Allocator>
+struct IsUintStdVectorT<std::vector<T, Allocator>> : std::true_type
+{
+};
+
+template <std::unsigned_integral T, typename Allocator>
+struct IsUintStdVectorT<const std::vector<T, Allocator>> : std::true_type
+{
+};
+
+template <typename T>
+concept uint_std_vector = IsUintStdVectorT<T>::value;
 
 template <size_t value>
 struct StaticSizeContainer
@@ -79,6 +116,8 @@ class ASS_EMPTY_BASES BitSpan : public bit_span_detail::SizeContainer<static_ext
                                 public bit_span_detail::PartsCountContainer<static_extents.parts_count>
 {
 public:
+    static constexpr bool kCanModifyData = !std::is_const_v<Part>;
+
     [[nodiscard]] static constexpr size_t BitsPerPart()
     {
         return sizeof(Part) * 8;
@@ -89,7 +128,7 @@ public:
         return static_extents.size != std::dynamic_extent;
     }
 
-    [[nodiscard]] static constexpr size_t GetSize() noexcept
+    [[nodiscard]] static consteval size_t GetSize() noexcept
         requires(HasStaticSize())
     {
         return static_extents.size;
@@ -101,12 +140,12 @@ public:
         return this->size_;
     }
 
-    [[nodiscard]] static constexpr bool HasStaticCapacity()
+    [[nodiscard]] static consteval bool HasStaticCapacity()
     {
         return static_extents.parts_count != std::dynamic_extent;
     }
 
-    [[nodiscard]] static constexpr size_t GetPartsCount() noexcept
+    [[nodiscard]] static consteval size_t GetPartsCount() noexcept
         requires(HasStaticCapacity())
     {
         return static_extents.parts_count;
@@ -179,7 +218,7 @@ public:
     }
 
     constexpr void Flip() const
-        requires(!std::is_const_v<Part>)
+        requires(kCanModifyData)
     {
         if constexpr (static_extents.size == 0) return;
         if (GetSize() == 0) return;
@@ -187,15 +226,15 @@ public:
         FlipNonEmpty();
     }
 
-    [[nodiscard]] bool Get(size_t index) const
+    [[nodiscard]] constexpr bool Get(size_t index) const
     {
         assert(index < GetSize());
         const PurePart mask = PurePart{1} << (index % BitsPerPart());
         return parts_[index / BitsPerPart()] & mask;  // NOLINT
     }
 
-    void Set(size_t index, bool value) const
-        requires(!std::is_const_v<Part>)
+    constexpr void Set(size_t index, bool value) const
+        requires(kCanModifyData)
     {
         assert(index < GetSize());
         const Part mask = PurePart{1} << (index % BitsPerPart());
@@ -332,18 +371,40 @@ template <BitSpanSize size, std::unsigned_integral Part, size_t span_extent>
     return BitSpan<Part, {.size = size.size}>{parts.data(), {.parts_count = parts.size()}};
 }
 
-template <BitSpanSize size, std::unsigned_integral Part, size_t array_size>
-[[nodiscard]] constexpr auto ToBitSpan(const std::array<Part, array_size>& parts)
+template <BitSpanSize size, bit_span_detail::uint_std_array Array>
+[[nodiscard]] constexpr auto ToBitSpan(Array& parts)
 {
-    static_assert(size.size <= array_size * sizeof(Part) * 8);
-    return BitSpan<const Part, {.parts_count = array_size, .size = size.size}>{parts.data()};
+    using Part = std::remove_reference_t<decltype(parts.front())>;
+    constexpr size_t parts_count = std::tuple_size_v<Array>;
+    static_assert(size.size <= parts_count * sizeof(Part) * 8);
+    return BitSpan<Part, {.parts_count = parts_count, .size = size.size}>{parts.data()};
 }
 
-template <std::unsigned_integral Part, size_t array_size>
-[[nodiscard]] constexpr auto ToBitSpan(const std::array<Part, array_size>& parts, BitSpanSize size)
+template <bit_span_detail::uint_std_array Array>
+[[nodiscard]] constexpr auto ToBitSpan(Array& parts, BitSpanSize size)
 {
-    assert(size.size <= array_size * sizeof(Part) * 8);
-    return BitSpan<const Part, {.parts_count = array_size}>{parts.data(), {.size = size.size}};
+    using Part = std::remove_reference_t<decltype(parts.front())>;
+    constexpr size_t parts_count = std::tuple_size_v<Array>;
+    assert(size.size <= parts_count * sizeof(Part) * 8);
+    return BitSpan<Part, {.parts_count = parts_count}>{parts.data(), {.size = size.size}};
+}
+
+template <BitSpanSize size = {.size = std::dynamic_extent}, bit_span_detail::uint_std_vector Vector>
+[[nodiscard]] constexpr auto ToBitSpan(Vector& data)
+{
+    using Part = std::remove_reference_t<decltype(data.front())>;
+    constexpr size_t bits_per_part = sizeof(Part) * 8;
+
+    if constexpr (size.size == std::dynamic_extent)
+    {
+        return BitSpan<Part>{data.data(), {.parts_count = data.size(), .size = data.size() * bits_per_part}};
+    }
+    else
+    {
+        constexpr size_t parts_count = (size.size / bits_per_part) + ((size.size % bits_per_part) != 0);
+        assert(parts_count <= data.size());
+        return BitSpan<Part, {.parts_count = parts_count, .size = size.size}>{data.data()};
+    }
 }
 
 }  // namespace ass
