@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cassert>
+#include <functional>
 #include <span>
 #include <vector>
 
