@@ -480,4 +480,46 @@ TEST(BitSpanTest, VectorToBitSpan)
         ASSERT_TRUE(test_bits(bit_span));
     }
 }
+
+TEST(BitSpanTest, AndAssign)
+{
+    std::array<uint8_t, 3> a{0b1101'1011, 0b1101'1011, 0b1101'1011};
+    constexpr std::array<uint8_t, 3> b{0b1011'0110, 0b1011'0110, 0b0000'0000};
+
+    auto bit_span_a = ToBitSpan<{.size = 17}>(a);
+    auto bit_span_b = ToBitSpan<{.size = 17}>(b);
+    bit_span_a.AndAssign(bit_span_b);
+
+    ASSERT_EQ(a[0], 0b1001'0010);
+    ASSERT_EQ(a[1], 0b1001'0010);
+    ASSERT_EQ(a[2], 0b1101'1010);
+}
+
+TEST(BitSpanTest, OrAssign)
+{
+    std::array<uint8_t, 3> a{0b1101'1011, 0b1101'1011, 0b1101'1011};
+    std::array<uint8_t, 3> b{0b1011'0110, 0b1011'0110, 0b0000'0000};
+
+    auto bit_span_a = ToBitSpan<{.size = 17}>(a);
+    auto bit_span_b = ToBitSpan<{.size = 17}>(b);
+    bit_span_a.OrAssign(bit_span_b);
+
+    ASSERT_EQ(a[0], 0b1111'1111);
+    ASSERT_EQ(a[1], 0b1111'1111);
+    ASSERT_EQ(a[2], 0b1101'1011);
+}
+
+TEST(BitSpanTest, XorAssign)
+{
+    std::array<uint8_t, 3> a{0b1101'1011, 0b1101'1011, 0b1101'1011};
+    std::array<uint8_t, 3> b{0b1011'0110, 0b1011'0110, 0b0000'0000};
+
+    auto bit_span_a = ToBitSpan<{.size = 17}>(a);
+    auto bit_span_b = ToBitSpan<{.size = 17}>(b);
+    bit_span_a.XorAssign(bit_span_b);
+
+    ASSERT_EQ(a[0], 0b0110'1101);
+    ASSERT_EQ(a[1], 0b0110'1101);
+    ASSERT_EQ(a[2], 0b1101'1011);
+}
 }  // namespace ass

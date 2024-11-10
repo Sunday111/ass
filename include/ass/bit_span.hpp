@@ -78,6 +78,14 @@ template <size_t value>
 using PartsCountContainer =
     std::conditional_t<value == std::dynamic_extent, DynamicPartsCountContainer, StaticPartsCountContainer<value>>;
 
+template <typename T>
+struct IsBitSpanT : std::false_type
+{
+};
+
+template <typename T>
+concept is_bit_span = IsBitSpanT<T>::value;
+
 }  // namespace ass::bit_span_detail
 
 namespace ass
@@ -226,6 +234,32 @@ public:
         FlipNonEmpty();
     }
 
+    template <bit_span_detail::is_bit_span Another>
+    constexpr void AndAssign(const Another& another)
+        requires(kCanModifyData)
+    {
+        this->template ApplyInplaceBinaryOp<std::bit_and<Part>{}>(another);
+    }
+
+    template <bit_span_detail::is_bit_span Another>
+    constexpr void OrAssign(const Another& another)
+        requires(kCanModifyData)
+    {
+        this->template ApplyInplaceBinaryOp<std::bit_or<Part>{}>(another);
+    }
+
+    template <bit_span_detail::is_bit_span Another>
+    constexpr void XorAssign(const Another& another)
+        requires(kCanModifyData)
+    {
+        this->template ApplyInplaceBinaryOp<std::bit_xor<Part>{}>(another);
+    }
+
+    [[nodiscard]] constexpr auto& GetPart(size_t index) const
+    {
+        return parts_[index];  // NOLINT
+    }
+
     [[nodiscard]] constexpr bool Get(size_t index) const
     {
         assert(index < GetSize());
@@ -251,6 +285,45 @@ public:
     }
 
 private:
+    template <auto op, bit_span_detail::is_bit_span Another>
+    void ApplyInplaceBinaryOp(const Another& another)
+        requires(kCanModifyData)
+    {
+        if constexpr (Another::HasStaticSize() && HasStaticSize())
+        {
+            static_assert(Another::GetSize() == GetSize());
+        }
+        else
+        {
+            assert(GetSize() == another.GetSize());
+        }
+
+        if (GetSize() == 0) return;
+
+        const size_t last_used_part_index = GetLastUsedPartIndex();
+        for (size_t part_index = 0; part_index != last_used_part_index; ++part_index)
+        {
+            auto& part = GetPart(part_index);
+            part = op(part, another.GetPart(part_index));
+        }
+
+        auto& part = parts_[last_used_part_index];  // NOLINT
+        const auto& another_part = another.GetPart(last_used_part_index);
+        const PurePart op_result = op(part, another_part);
+
+        // Have to mask out unused bits (if any)
+        if (const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart(); used_bits_in_last_part != 0)
+        {
+            const auto unused_bits_mask = std::numeric_limits<PurePart>::max() << used_bits_in_last_part;
+            part = (op_result & ~unused_bits_mask) | (part & unused_bits_mask);
+        }
+        else
+        {
+            part = op_result;
+        }
+    }
+
+private:
     using PurePart = std::remove_const_t<Part>;
 
     constexpr void FlipNonEmpty() const
@@ -268,14 +341,8 @@ private:
         const size_t used_bits_in_last_part = GetUsedBitsCountInLastUsedPart();
         if (used_bits_in_last_part != 0)
         {
-            PurePart unused_bits_mask{};
-            unused_bits_mask = ~unused_bits_mask;
-            unused_bits_mask <<= used_bits_in_last_part;
-
-            PurePart used_bits_mask = unused_bits_mask;
-            used_bits_mask = ~used_bits_mask;
-
-            part = ((~part) & used_bits_mask) | (part & unused_bits_mask);
+            const auto unused_bits_mask = std::numeric_limits<PurePart>::max() << used_bits_in_last_part;
+            part = ((~part) & ~unused_bits_mask) | (part & unused_bits_mask);
         }
         else
         {
@@ -408,3 +475,11 @@ template <BitSpanSize size = {.size = std::dynamic_extent}, bit_span_detail::uin
 }
 
 }  // namespace ass
+
+namespace ass::bit_span_detail
+{
+template <typename Part, BitSpanStaticExtents extents>
+struct IsBitSpanT<BitSpan<Part, extents>> : std::true_type
+{
+};
+}  // namespace ass::bit_span_detail
