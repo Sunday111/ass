@@ -5,6 +5,7 @@
 #include <type_traits>
 
 #include "fixed_bitset.hpp"
+#include "invalid_index.hpp"
 
 namespace ass
 {
@@ -85,7 +86,7 @@ public:
     constexpr bool Contains(const Key key) const
     {
         const size_t index = FindKeyIndex(key);
-        return index != capacity && has_index_.Get(index);
+        return index != kInvalidIndex && has_index_.Get(index);
     }
 
     static constexpr size_t Capacity() noexcept
@@ -96,22 +97,32 @@ public:
     constexpr Value& Get(const Key key)
     {
         const size_t index = FindKeyIndex(key);
-        assert(index != capacity && has_index_.Get(index));
+        assert(index != kInvalidIndex && has_index_.Get(index));
+        return values_[index];
+    }
+
+    constexpr size_t FindKeyIndex(const Key key) const
+    {
+        constexpr bool stop_at_deleted = false;
+        return FindIndexForKey<stop_at_deleted>(key);
+    }
+
+    constexpr const Value& GetAtIndex(const size_t index) const
+    {
+        assert(index < capacity && has_index_.Get(index));
         return values_[index];
     }
 
     constexpr const Value& Get(const Key key) const
     {
-        const size_t index = FindKeyIndex(key);
-        assert(index != capacity && has_index_.Get(index));
-        return values_[index];
+        return GetAtIndex(FindKeyIndex(key));
     }
 
     template <typename... Args>
     constexpr Value* TryEmplace(const Key key, Args&&... args)
     {
         const size_t index = FindFreeIndexForKey(key);
-        if (index == capacity)
+        if (index == kInvalidIndex)
         {
             return nullptr;
         }
@@ -134,7 +145,7 @@ public:
     constexpr Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindFreeIndexForKey(key);
-        if (index == capacity)
+        if (index == kInvalidIndex)
         {
             return nullptr;
         }
@@ -170,7 +181,7 @@ public:
     constexpr std::optional<Value> Remove(const Key key)
     {
         const size_t index = FindKeyIndex(key);
-        if (index != capacity && has_index_.Set(index, false))
+        if (index != kInvalidIndex && has_index_.Set(index, false))
         {
             was_deleted_.Set(index, true);
             return std::move(values_[index]);
@@ -240,12 +251,6 @@ protected:
         return It(*this_, capacity);
     }
 
-    constexpr size_t FindKeyIndex(const Key key) const
-    {
-        constexpr bool stop_at_deleted = false;
-        return FindIndexForKey<stop_at_deleted>(key);
-    }
-
     constexpr size_t FindFreeIndexForKey(const Key key) const
     {
         constexpr bool stop_at_deleted = true;
@@ -282,7 +287,7 @@ protected:
             }
         }
 
-        return capacity;
+        return kInvalidIndex;
     }
 
     constexpr bool HasValueAtIndex(size_t index) const noexcept
