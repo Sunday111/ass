@@ -5,6 +5,7 @@
 #include <functional>
 #include <span>
 #include <vector>
+#include <concepts>
 
 #include "macro/empty_bases.hpp"
 
