@@ -101,7 +101,7 @@ public:
         return values_[index];
     }
 
-    constexpr size_t FindKeyIndex(const Key key) const
+    constexpr size_t FindKeyIndex(const Key& key) const
     {
         constexpr bool stop_at_deleted = false;
         return FindIndexForKey<stop_at_deleted>(key);
@@ -169,6 +169,28 @@ public:
         }
 
         return &value_ref;
+    }
+
+    [[nodiscard]] constexpr Value* Find(const Key& key)
+    {
+        size_t index = FindKeyIndex(key);
+        if (index != kInvalidIndex && has_index_.Get(index))
+        {
+            return &values_[index];
+        }
+
+        return nullptr;
+    }
+
+    [[nodiscard]] constexpr const Value* Find(const Key& key) const
+    {
+        size_t index = FindKeyIndex(key);
+        if (index != kInvalidIndex && has_index_.Get(index))
+        {
+            return &values_[index];
+        }
+
+        return nullptr;
     }
 
     constexpr Value& Add(const Key key, std::optional<Value> value = std::nullopt)

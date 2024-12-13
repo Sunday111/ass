@@ -210,7 +210,14 @@ public:
 
     constexpr void Fill(bool value)
     {
-        parts_.fill(std::numeric_limits<Part>::max());
+        if (value)
+        {
+            parts_.fill(std::numeric_limits<Part>::max());
+        }
+        else
+        {
+            parts_.fill(0);
+        }
     }
 
 private:
