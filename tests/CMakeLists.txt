@@ -8,6 +8,7 @@ file(GLOB_RECURSE target_headers ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
 file(GLOB_RECURSE target_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 option(ASS_FETCH_GOOGLE_TESTS "Disable it if you already have google tests in your project" ON)
+option(ASS_FIND_GTEST_PACKAGE "Enable to make the script look for google tests in the system" OFF)
 
 if (ASS_FETCH_GOOGLE_TESTS)
   FetchContent_Declare(
@@ -17,6 +18,10 @@ if (ASS_FETCH_GOOGLE_TESTS)
     )
     
   FetchContent_MakeAvailable(googletest)
+elseif(ASS_FIND_GTEST_PACKAGE)
+  find_package(GTest REQUIRED)
+  add_library(gtest ALIAS GTest::gtest)
+  add_library(gtest_main ALIAS GTest::gtest_main)
 endif()
 
 set(target_name ass_tests)
