@@ -100,6 +100,13 @@ public:
         return bits_;
     }
 
+    [[nodiscard]] static constexpr EnumSet Full()
+    {
+        EnumSet r;
+        r.Invert();
+        return r;
+    }
+
     // clang-format off
     // STL
     auto begin() const { return Iterator(*this, bits_.CountContinuousZeroBits()); }
