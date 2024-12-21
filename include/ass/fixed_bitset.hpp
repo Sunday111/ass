@@ -81,7 +81,7 @@ public:
         {
             for (Part p : parts_)
             {
-                n += std::popcount(p);
+                n += static_cast<size_t>(std::popcount(p));
             }
         }
         else
@@ -90,7 +90,7 @@ public:
             size_t last_part_index = kPartsCount - 1;
             for (size_t part_index = 0; part_index != last_part_index; ++part_index)
             {
-                n += std::popcount(parts_[part_index]);
+                n += static_cast<size_t>(std::popcount(parts_[part_index]));
             }
 
             Part mask{};
@@ -100,7 +100,7 @@ public:
             Part part = parts_[last_part_index];
             part &= mask;
 
-            n += std::popcount(part);
+            n += static_cast<size_t>(std::popcount(part));
         }
         return n;
     }
