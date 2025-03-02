@@ -1,7 +1,7 @@
 #pragma once
 
 #include "enum_as_index.hpp"
-#include "magic_enum.hpp"
+#include "magic_enum/magic_enum.hpp"
 
 static_assert(magic_enum::is_magic_enum_supported);
 
