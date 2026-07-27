@@ -170,7 +170,7 @@ void ParametrizeBitSpanTest(F&& callable)  // NOLINT
 
     auto with_parts_count = [&]<typename PartType, size_t... parts_count>(const SizeTSeq<parts_count...>&)
     {
-        auto parts_count_to_max_bits = []<size_t n>(std::integer_sequence<size_t, n>)
+        [[maybe_unused]] auto parts_count_to_max_bits = []<size_t n>(std::integer_sequence<size_t, n>)
         {
             // if parts count is dynamic value - try all variants of size value but at most for 3 parts
             size_t r = sizeof(PartType) * 8;
@@ -304,19 +304,19 @@ TEST(BitSpanTest, Flip)
         [&]<typename Part, BitSpanStaticExtents static_extents>(size_t parts_count, size_t size)
         {
             auto parts_view = AdaptBufferForBitSpan<Part, static_extents>(buffer, parts_count);
-            auto bit_span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
-            assert(bit_span.GetPartsCount() * sizeof(Part) <= buffer.size());
-            PrintSpanInfo(bit_span);
+            auto span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
+            assert(span.GetPartsCount() * sizeof(Part) <= buffer.size());
+            PrintSpanInfo(span);
 
-            ASSERT_EQ(bit_span.CountOnes(), 0);
-            bit_span.Flip();
-            ASSERT_EQ(bit_span.CountOnes(), bit_span.GetSize());
+            ASSERT_EQ(span.CountOnes(), 0);
+            span.Flip();
+            ASSERT_EQ(span.CountOnes(), span.GetSize());
 
             for (size_t i = 0; i != buffer.size() * 8; ++i)
             {
                 auto& part = buffer[i / 8];
                 bool bit_value = part & (1 << (i % 8));
-                if (i < bit_span.GetSize())
+                if (i < span.GetSize())
                 {
                     ASSERT_TRUE(bit_value);
                 }
@@ -442,7 +442,7 @@ TEST(BitSpanTest, ToBitSpan)
 TEST(BitSpanTest, VectorToBitSpan)
 {
     std::vector<uint8_t> data{0b0011'1000, 0b1000'1110};
-    const auto& const_data = data;
+    [[maybe_unused]] const auto& const_data = data;
 
     auto test_bits = [&](const auto& bit_span) -> bool
     {

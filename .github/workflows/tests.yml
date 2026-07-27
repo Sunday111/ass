@@ -1,0 +1,47 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    env:
+      # Where yae clones dependencies (yae-support, googletest, ...) and writes
+      # its registry.json. The checked-out project supplies the ass package, so
+      # the code under test is what gets built.
+      YAE_REPOS: ${{ github.workspace }}/.yae-repos
+    steps:
+      - name: Check out ass
+        uses: actions/checkout@v4
+        with:
+          path: project
+
+      - name: Check out the yae build tool
+        uses: actions/checkout@v4
+        with:
+          repository: Sunday111/yae
+          path: yae
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # yae generates a Ninja build. ubuntu-latest ships Ninja, but install it
+      # explicitly so the workflow does not depend on the runner image contents.
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build tests
+        run: >
+          uv run --project yae yae build
+          --project_dir project
+          --cloned_repositories_dir "$YAE_REPOS"
+          AssTests
+
+      - name: Run tests
+        run: >
+          uv run --project yae yae run
+          --project_dir project
+          --cloned_repositories_dir "$YAE_REPOS"
+          AssTests

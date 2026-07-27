@@ -1,0 +1,11 @@
+{
+    "ModuleType": "Executable",
+    "EnableTesting": true,
+    "Dependencies": {
+        "Public": [],
+        "Private": [
+            "ass",
+            "gtest_main"
+        ]
+    }
+}

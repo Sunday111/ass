@@ -1,0 +1,13 @@
+{
+    "name": "ass",
+    "default_configuration": {
+        "build_dir": "build",
+        "build_targets": [
+            "AssTests"
+        ],
+        "run_target": "AssTests"
+    },
+    "cpp": {
+        "standard": "20"
+    }
+}
