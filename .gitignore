@@ -1,3 +1,4 @@
 build
 .cache
-.vscodeyae.log
+.vscode
+yae.log
