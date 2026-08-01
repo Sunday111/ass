@@ -278,7 +278,7 @@ TEST(BitSpanTest, CountOnes)
 
             for (auto& v : buffer)
             {
-                v = ~v;
+                v = static_cast<uint8_t>(~v);
             }
 
             ASSERT_EQ(bit_span.CountOnes(), odd_count);
