@@ -1,17 +1,34 @@
 name: tests
 
 on:
+  # A branch with an open pull request would otherwise be built twice: once for the
+  # push and once for the pull request.
   push:
+    branches: [main]
   pull_request:
+
+# Supersede the runs still going for older commits on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   linux:
     runs-on: ubuntu-latest
     env:
       # Where yae clones dependencies (yae-support, googletest, ...) and writes
-      # its registry.json. The checked-out project supplies the ass package, so
-      # the code under test is what gets built.
+      # its registry.json. The checked-out project supplies the ass
+      # package itself, so the code under test is what gets built.
       YAE_REPOS: ${{ github.workspace }}/.yae-repos
+      # The project is developed against clang and its warning set, and the one
+      # ubuntu-latest preinstalls is too old. CMake picks the compiler up from CC/CXX
+      # and the flags from CXXFLAGS/LDFLAGS.
+      CLANG_VERSION: "22"
+      CC: clang-22
+      CXX: clang++-22
+      # libc++ is what this project and its consumers are built against.
+      CXXFLAGS: -stdlib=libc++
+      LDFLAGS: -stdlib=libc++
     steps:
       - name: Check out ass
         uses: actions/checkout@v4
@@ -32,6 +49,17 @@ jobs:
       - name: Install Ninja
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh "$CLANG_VERSION"
+          sudo apt-get install -y "libc++-$CLANG_VERSION-dev" "libc++abi-$CLANG_VERSION-dev"
+          "clang++-$CLANG_VERSION" --version
+
+      # Options must precede the target: `yae run` forwards everything after the
+      # run target to the executable (argparse REMAINDER), so flags placed after
+      # it would be swallowed instead of parsed by yae.
       - name: Build tests
         run: >
           uv run --project yae yae build
