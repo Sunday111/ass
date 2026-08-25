@@ -1,6 +1,7 @@
 name: tests
 
 on:
+  workflow_dispatch:
   # A branch with an open pull request would otherwise be built twice: once for the
   # push and once for the pull request.
   push:
@@ -20,15 +21,7 @@ jobs:
       # its registry.json. The checked-out project supplies the ass
       # package itself, so the code under test is what gets built.
       YAE_REPOS: ${{ github.workspace }}/.yae-repos
-      # The project is developed against clang and its warning set, and the one
-      # ubuntu-latest preinstalls is too old. CMake picks the compiler up from CC/CXX
-      # and the flags from CXXFLAGS/LDFLAGS.
       CLANG_VERSION: "22"
-      CC: clang-22
-      CXX: clang++-22
-      # libc++ is what this project and its consumers are built against.
-      CXXFLAGS: -stdlib=libc++
-      LDFLAGS: -stdlib=libc++
     steps:
       - name: Check out ass
         uses: actions/checkout@v4
@@ -54,7 +47,6 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh "$CLANG_VERSION"
-          sudo apt-get install -y "libc++-$CLANG_VERSION-dev" "libc++abi-$CLANG_VERSION-dev"
           "clang++-$CLANG_VERSION" --version
 
       # Options must precede the target: `yae run` forwards everything after the
