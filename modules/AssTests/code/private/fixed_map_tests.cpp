@@ -2,6 +2,7 @@
 #include <array>
 #include <limits>
 #include <random>
+#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
@@ -58,6 +59,32 @@ struct ConstexprHasherCollisions
     {
         return 42;
     }
+};
+
+struct ThrowOnAssignment
+{
+    int value = 0;
+    bool fail = false;
+
+    ThrowOnAssignment() = default;
+    ThrowOnAssignment(int initial_value, bool should_fail) : value(initial_value), fail(should_fail) {}
+    ThrowOnAssignment(const ThrowOnAssignment&) = default;
+    ThrowOnAssignment(ThrowOnAssignment&&) = default;
+
+    ThrowOnAssignment& operator=(const ThrowOnAssignment& other)
+    {
+        if (other.fail) throw std::runtime_error("assignment failed");
+        value = other.value;
+        fail = other.fail;
+        return *this;
+    }
+
+    ThrowOnAssignment& operator=(ThrowOnAssignment&& other)
+    {
+        return *this = other;
+    }
+
+    bool operator==(const ThrowOnAssignment&) const = default;
 };
 
 template <typename MapType_>
@@ -315,6 +342,53 @@ TYPED_TEST(FixedUnorderedMapTest, Iteration)
             }
         }
     }
+}
+
+TEST(FixedUnorderedMapTest, EmplaceStoresTheKey)
+{
+    ass::FixedUnorderedMap<4, int, int, ConstexprHasherCollisions> map;
+
+    map.Emplace(7, 42);
+
+    EXPECT_TRUE(map.Contains(7));
+    EXPECT_EQ(map.Get(7), 42);
+}
+
+TEST(FixedUnorderedMapTest, ReusesATombstoneWithoutDuplicatingALaterCollision)
+{
+    ass::FixedUnorderedMap<4, int, int, ConstexprHasherCollisions> map;
+    map.Add(1, 10);
+    map.Add(2, 20);
+    ASSERT_TRUE(map.Remove(1).has_value());
+
+    const auto* value = map.TryAdd(2, 30);
+
+    ASSERT_NE(value, nullptr);
+    EXPECT_EQ(*value, 30);
+    EXPECT_EQ(map.Size(), 1);
+    EXPECT_EQ(map.Get(2), 30);
+}
+
+TEST(FixedUnorderedMapTest, FailedKeyAssignmentDoesNotOccupyTheSlot)
+{
+    ass::FixedUnorderedMap<4, ThrowOnAssignment, int, ConstexprHasherCollisions> map;
+
+    EXPECT_THROW(map.TryAdd({1, true}, 10), std::runtime_error);
+
+    EXPECT_EQ(map.Size(), 0);
+    EXPECT_NE(map.TryAdd({2, false}, 20), nullptr);
+    EXPECT_EQ(map.Size(), 1);
+}
+
+TEST(FixedUnorderedMapTest, FailedValueAssignmentDoesNotOccupyTheSlot)
+{
+    ass::FixedUnorderedMap<4, int, ThrowOnAssignment, ConstexprHasherCollisions> map;
+
+    EXPECT_THROW(map.TryEmplace(1, 10, true), std::runtime_error);
+
+    EXPECT_EQ(map.Size(), 0);
+    EXPECT_NE(map.TryEmplace(2, 20, false), nullptr);
+    EXPECT_EQ(map.Size(), 1);
 }
 
 static constexpr bool ConstexprTest()

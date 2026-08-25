@@ -1,5 +1,4 @@
 #include <array>
-#include <iostream>
 
 #include "ass/bit_span.hpp"
 #include "gtest/gtest.h"
@@ -227,15 +226,6 @@ TEST(BitSpanTest, DynamicPartsCountAndSizeCtor)
     ASSERT_EQ(bit_span.GetCapacity(), 64);
 }
 
-template <typename T>
-void PrintSpanInfo(const T& bit_span)
-{
-    std::cout << "Part size: " << bit_span.BitsPerPart() << ". ";
-    std::cout << "Capacity: " << bit_span.GetCapacity() << ". ";
-    std::cout << "Size: " << bit_span.GetSize() << ". ";
-    std::cout << '\n';
-}
-
 template <typename Part, BitSpanStaticExtents static_extents>
 [[nodiscard]] constexpr auto AdaptBufferForBitSpan(std::vector<uint8_t>& buffer, size_t dyn_parts_count)
 {
@@ -263,7 +253,6 @@ TEST(BitSpanTest, CountOnes)
             auto parts_view = AdaptBufferForBitSpan<Part, static_extents>(buffer, parts_count);
             auto bit_span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
             assert(bit_span.GetPartsCount() * sizeof(Part) <= buffer.size());
-            PrintSpanInfo(bit_span);
 
             for (size_t i = 0; i < buffer.size() * 8; i += 2)
             {
@@ -306,7 +295,6 @@ TEST(BitSpanTest, Flip)
             auto parts_view = AdaptBufferForBitSpan<Part, static_extents>(buffer, parts_count);
             auto span = MakeBitSpan<Part, static_extents>(parts_view.data(), parts_count, size);
             assert(span.GetPartsCount() * sizeof(Part) <= buffer.size());
-            PrintSpanInfo(span);
 
             ASSERT_EQ(span.CountOnes(), 0);
             span.Flip();

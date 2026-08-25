@@ -3,6 +3,7 @@
 #include <cassert>
 #include <optional>
 #include <type_traits>
+#include <utility>
 
 #include "fixed_bitset.hpp"
 #include "invalid_index.hpp"
@@ -83,7 +84,7 @@ public:
 
     constexpr FixedUnorderedMap() = default;
 
-    constexpr bool Contains(const Key key) const
+    constexpr bool Contains(Key key) const
     {
         const size_t index = FindKeyIndex(key);
         return index != kInvalidIndex && has_index_.Get(index);
@@ -94,7 +95,7 @@ public:
         return capacity;
     }
 
-    constexpr Value& Get(const Key key)
+    constexpr Value& Get(Key key)
     {
         const size_t index = FindKeyIndex(key);
         assert(index != kInvalidIndex && has_index_.Get(index));
@@ -103,23 +104,22 @@ public:
 
     constexpr size_t FindKeyIndex(const Key& key) const
     {
-        constexpr bool stop_at_deleted = false;
-        return FindIndexForKey<stop_at_deleted>(key);
+        return FindIndexForKey(key);
     }
 
-    constexpr const Value& GetAtIndex(const size_t index) const
+    constexpr const Value& GetAtIndex(size_t index) const
     {
         assert(index < capacity && has_index_.Get(index));
         return values_[index];
     }
 
-    constexpr const Value& Get(const Key key) const
+    constexpr const Value& Get(Key key) const
     {
         return GetAtIndex(FindKeyIndex(key));
     }
 
     template <typename... Args>
-    constexpr Value* TryEmplace(const Key key, Args&&... args)
+    constexpr Value* TryEmplace(Key key, Args&&... args)
     {
         const size_t index = FindFreeIndexForKey(key);
         if (index == kInvalidIndex)
@@ -127,22 +127,31 @@ public:
             return nullptr;
         }
 
+        const bool must_init = !has_index_.Get(index);
+        if (must_init)
+        {
+            keys_[index] = key;
+        }
+
         Value& value = values_[index];
-        has_index_.Set(index, true);
-        was_deleted_.Set(index, false);
         value = Value(std::forward<Args>(args)...);
+        if (must_init)
+        {
+            was_deleted_.Set(index, false);
+            has_index_.Set(index, true);
+        }
         return &value;
     }
 
     template <typename... Args>
-    constexpr Value& Emplace(const Key key, Args&&... args)
+    constexpr Value& Emplace(Key key, Args&&... args)
     {
         auto ptr = TryEmplace(key, std::forward<Args>(args)...);
         assert(ptr);
         return *ptr;
     }
 
-    constexpr Value* TryAdd(const Key key, std::optional<Value> value = std::nullopt)
+    constexpr Value* TryAdd(Key key, std::optional<Value> value = std::nullopt)
     {
         const size_t index = FindFreeIndexForKey(key);
         if (index == kInvalidIndex)
@@ -150,12 +159,11 @@ public:
             return nullptr;
         }
 
-        const bool must_init = has_index_.Set(index, true);
+        const bool must_init = !has_index_.Get(index);
 
         if (must_init)
         {
             keys_[index] = key;
-            was_deleted_.Set(index, false);
         }
 
         Value& value_ref = values_[index];
@@ -166,6 +174,12 @@ public:
         else if (must_init)
         {
             value_ref = Value{};
+        }
+
+        if (must_init)
+        {
+            was_deleted_.Set(index, false);
+            has_index_.Set(index, true);
         }
 
         return &value_ref;
@@ -193,14 +207,14 @@ public:
         return nullptr;
     }
 
-    constexpr Value& Add(const Key key, std::optional<Value> value = std::nullopt)
+    constexpr Value& Add(Key key, std::optional<Value> value = std::nullopt)
     {
         auto ptr = TryAdd(key, std::move(value));
         assert(ptr);
         return *ptr;
     }
 
-    constexpr std::optional<Value> Remove(const Key key)
+    constexpr std::optional<Value> Remove(Key key)
     {
         const size_t index = FindKeyIndex(key);
         if (index != kInvalidIndex && has_index_.Set(index, false))
@@ -248,7 +262,7 @@ public:
         return MakeEnd<ConstIterator>(this);
     }
 
-    static constexpr size_t ToIndex(const size_t value)
+    static constexpr size_t ToIndex(size_t value)
     {
         if constexpr (capacity == 0)
         {
@@ -273,39 +287,43 @@ protected:
         return It(*this_, capacity);
     }
 
-    constexpr size_t FindFreeIndexForKey(const Key key) const
+    constexpr size_t FindFreeIndexForKey(const Key& key) const
     {
-        constexpr bool stop_at_deleted = true;
-        return FindIndexForKey<stop_at_deleted>(key);
+        const size_t start_index = ToIndex(Hasher{}(key));
+        size_t first_deleted_index = kInvalidIndex;
+        for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
+        {
+            const size_t index = ToIndex(start_index + collision_index);
+            if (has_index_.Get(index))
+            {
+                if (keys_[index] == key) return index;
+            }
+            else if (was_deleted_.Get(index))
+            {
+                if (first_deleted_index == kInvalidIndex) first_deleted_index = index;
+            }
+            else
+            {
+                return first_deleted_index == kInvalidIndex ? index : first_deleted_index;
+            }
+        }
+
+        return first_deleted_index;
     }
 
-    template <bool kStopAtDeleted>
-    constexpr size_t FindIndexForKey(const Key key) const
+    constexpr size_t FindIndexForKey(const Key& key) const
     {
         const size_t start_index = ToIndex(Hasher{}(key));
         for (size_t collision_index = 0; collision_index != capacity; ++collision_index)
         {
             const size_t index = ToIndex(start_index + collision_index);
-            if constexpr (kStopAtDeleted)
+            if (has_index_.Get(index))
             {
-                if (!has_index_.Get(index) || keys_[index] == key)
-                {
-                    return index;
-                }
+                if (keys_[index] == key) return index;
             }
-            else
+            else if (!was_deleted_.Get(index))
             {
-                if (has_index_.Get(index))
-                {
-                    if (keys_[index] == key)
-                    {
-                        return index;
-                    }
-                }
-                else if (!was_deleted_.Get(index))
-                {
-                    return index;
-                }
+                return index;
             }
         }
 
