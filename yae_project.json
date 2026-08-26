@@ -5,7 +5,11 @@
         "build_targets": [
             "AssTests"
         ],
-        "run_target": "AssTests"
+        "run_target": "AssTests",
+        "yae-toolchain": {
+            "compiler": "clang-22",
+            "linker": "ld"
+        }
     },
     "cpp": {
         "standard": "20"

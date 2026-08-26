@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.29)
 include(set_compiler_options)
+include(yae_debug_info_compression)
 set(module_source_files
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/bit/bit_count_to_type_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/bit_span_tests.cpp
@@ -15,6 +16,7 @@ target_link_libraries(AssTests PRIVATE ass
                                        gtest_main)
 target_include_directories(AssTests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/code/public)
 target_include_directories(AssTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/code/private)
+enable_debug_info_compression_for(AssTests)
 enable_testing()
 include(GoogleTest)
 gtest_discover_tests(AssTests)
