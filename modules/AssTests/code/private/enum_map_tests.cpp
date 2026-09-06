@@ -2,6 +2,7 @@
 #include <array>
 #include <memory>
 #include <random>
+#include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -312,6 +313,101 @@ TEST(EnumMap, ObjectDestructionTest)
         ASSERT_EQ(dtor_counter, 0);
     }
     ASSERT_EQ(dtor_counter, 1);
+}
+
+TEST(EnumMap, EmplaceReleasesStoredResources)
+{
+    struct Value
+    {
+        std::shared_ptr<int> resource = std::make_shared<int>(0);
+    };
+
+    std::weak_ptr<int> last_resource;
+    {
+        ass::EnumMap<ContinuousEnum, Value, ContinuousConverter> map;
+        std::weak_ptr<int> default_resource = map.Get(ContinuousEnum::A).resource;
+
+        auto& inserted = map.Emplace(ContinuousEnum::A, std::make_shared<int>(42));
+        EXPECT_TRUE(default_resource.expired());
+        EXPECT_EQ(&inserted, &map.Get(ContinuousEnum::A));
+        EXPECT_EQ(*inserted.resource, 42);
+        EXPECT_EQ(map.Size(), 1);
+
+        std::weak_ptr<int> first_resource = inserted.resource;
+        map.Emplace(ContinuousEnum::A, std::make_shared<int>(84));
+        EXPECT_TRUE(first_resource.expired());
+        EXPECT_EQ(*map.Get(ContinuousEnum::A).resource, 84);
+        EXPECT_EQ(map.Size(), 1);
+
+        std::weak_ptr<int> second_resource = map.Get(ContinuousEnum::A).resource;
+        {
+            auto removed = map.Remove(ContinuousEnum::A);
+            ASSERT_TRUE(removed.has_value());
+            EXPECT_FALSE(second_resource.expired());
+            EXPECT_EQ(*removed->resource, 84);
+        }
+        EXPECT_TRUE(second_resource.expired());
+        EXPECT_FALSE(map.Contains(ContinuousEnum::A));
+
+        map.Emplace(ContinuousEnum::A, std::make_shared<int>(126));
+        last_resource = map.Get(ContinuousEnum::A).resource;
+        EXPECT_EQ(*map.Get(ContinuousEnum::A).resource, 126);
+        EXPECT_EQ(map.Size(), 1);
+    }
+    EXPECT_TRUE(last_resource.expired());
+}
+
+TEST(EnumMap, FailedEmplacePreservesMembership)
+{
+    struct Value
+    {
+        Value() = default;
+        explicit Value(int new_value, bool throw_on_construction = false, bool throw_on_assignment = false)
+            : value(new_value),
+              fail_assignment(throw_on_assignment)
+        {
+            if (throw_on_construction)
+            {
+                throw std::runtime_error("Construction failed");
+            }
+        }
+
+        Value& operator=(Value&& other)
+        {
+            if (other.fail_assignment)
+            {
+                throw std::runtime_error("Assignment failed");
+            }
+            value = other.value;
+            return *this;
+        }
+
+        int value = 0;
+        bool fail_assignment = false;
+    };
+
+    ass::EnumMap<ContinuousEnum, Value, ContinuousConverter> map;
+    EXPECT_THROW(map.Emplace(ContinuousEnum::A, 42, true), std::runtime_error);
+    EXPECT_FALSE(map.Contains(ContinuousEnum::A));
+    EXPECT_EQ(map.Size(), 0);
+    EXPECT_EQ(map.begin(), map.end());
+
+    EXPECT_THROW(map.Emplace(ContinuousEnum::A, 42, false, true), std::runtime_error);
+    EXPECT_FALSE(map.Contains(ContinuousEnum::A));
+    EXPECT_EQ(map.Size(), 0);
+    EXPECT_EQ(map.begin(), map.end());
+
+    map.Emplace(ContinuousEnum::A, 42);
+    EXPECT_THROW(map.Emplace(ContinuousEnum::A, 84, true), std::runtime_error);
+    EXPECT_THROW(map.Emplace(ContinuousEnum::A, 84, false, true), std::runtime_error);
+    EXPECT_TRUE(map.Contains(ContinuousEnum::A));
+    EXPECT_EQ(map.Size(), 1);
+    EXPECT_EQ(map.Get(ContinuousEnum::A).value, 42);
+    EXPECT_EQ((*map.begin()).key, ContinuousEnum::A);
+    EXPECT_EQ((*map.begin()).value.value, 42);
+
+    map.Emplace(ContinuousEnum::A, 126);
+    EXPECT_EQ(map.Get(ContinuousEnum::A).value, 126);
 }
 
 }  // namespace enum_map_tests

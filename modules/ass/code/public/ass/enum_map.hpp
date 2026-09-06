@@ -68,18 +68,12 @@ public:
     constexpr EnumMap() = default;
 
     template <typename... Args>
-    Value& Emplace(const Key key, Args&&... args)
+    Value& Emplace(Key key, Args&&... args)
     {
         Value& value = ValueRef(Index(key));
 
-        if (keys_.Add(key))
-        {
-            new (&value) Value(std::forward<Args>(args)...);
-        }
-        else
-        {
-            value = Value(std::forward<Args>(args)...);
-        }
+        value = Value(std::forward<Args>(args)...);
+        keys_.Add(key);
 
         return value;
     }
