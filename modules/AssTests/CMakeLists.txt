@@ -5,6 +5,7 @@ set(module_source_files
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/bit/bit_count_to_type_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/bit_span_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/enum/enum_as_index.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/code/private/enum_map_lifetime_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/enum_map_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/enum_set_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/code/private/fixed_bitset_tests.cpp

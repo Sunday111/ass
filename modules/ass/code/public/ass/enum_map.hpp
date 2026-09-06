@@ -1,5 +1,12 @@
 #pragma once
 
+#include <array>
+#include <cassert>
+#include <memory>
+#include <optional>
+#include <type_traits>
+#include <utility>
+
 #include "enum/enum_as_index.hpp"
 #include "enum_set.hpp"
 
@@ -67,64 +74,112 @@ public:
 
     constexpr EnumMap() = default;
 
-    template <typename... Args>
-    Value& Emplace(Key key, Args&&... args)
+    constexpr EnumMap(const EnumMap& another)
+        requires std::is_copy_constructible_v<Value>
+        : EnumMap()
     {
-        Value& value = ValueRef(Index(key));
-
-        value = Value(std::forward<Args>(args)...);
-        keys_.Add(key);
-
-        return value;
+        *this = another;
     }
 
-    constexpr Value& GetOrAdd(const Key key, std::optional<Value> opt_value = std::nullopt)
+    constexpr EnumMap(EnumMap&& another) noexcept(std::is_nothrow_move_constructible_v<Value>)
+        requires std::is_move_constructible_v<Value>
+        : EnumMap()
     {
-        Value& value = values_[Index(key)];
+        *this = std::move(another);
+    }
 
-        if (keys_.Add(key))
+    constexpr EnumMap& operator=(const EnumMap& another)
+        requires std::is_copy_constructible_v<Value>
+    {
+        if (this != &another)
         {
-            if (opt_value)
+            Clear();
+            for (auto [key, value] : another) Emplace(key, value);
+        }
+        return *this;
+    }
+
+    constexpr EnumMap& operator=(EnumMap&& another) noexcept(std::is_nothrow_move_constructible_v<Value>)
+        requires std::is_move_constructible_v<Value>
+    {
+        if (this != &another)
+        {
+            Clear();
+            for (auto [key, value] : another) Emplace(key, std::move(value));
+            another.Clear();
+        }
+        return *this;
+    }
+
+    constexpr ~EnumMap()
+    {
+        Clear();
+    }
+
+    template <typename... Args>
+        requires std::is_constructible_v<Value, Args...>
+    constexpr Value& Emplace(Key key, Args&&... args)
+    {
+        if (Contains(key))
+        {
+            if constexpr (std::is_assignable_v<Value&, Value>)
             {
-                value = std::move(*opt_value);
+                Value& value = Get(key);
+                value = Value(std::forward<Args>(args)...);
+                return value;
             }
             else
             {
-                value = Value{};
+                DestroyValue(key);
             }
         }
-        else if (opt_value)
+
+        Value* value = std::construct_at(std::addressof(values_[Index(key)].value), std::forward<Args>(args)...);
+        keys_.Add(key);
+        return *value;
+    }
+
+    constexpr Value& GetOrAdd(Key key)
+        requires std::is_default_constructible_v<Value>
+    {
+        return Contains(key) ? Get(key) : Emplace(key);
+    }
+
+    constexpr Value& GetOrAdd(Key key, std::optional<Value> opt_value)
+    {
+        if (opt_value) return Emplace(key, std::move_if_noexcept(*opt_value));
+        if constexpr (std::is_default_constructible_v<Value>)
         {
-            value = std::move(*opt_value);
+            return GetOrAdd(key);
         }
-
-        return value;
-    }
-
-    constexpr const Value& Get(const Key key) const
-    {
-        const size_t index = Index(key);
-        return values_[index];
-    }
-
-    constexpr Value& Get(const Key key)
-    {
-        const size_t index = Index(key);
-        return values_[index];
-    }
-
-    constexpr std::optional<Value> Remove(const Key key)
-    {
-        if (keys_.Remove(key))
+        else
         {
-            const size_t index = Index(key);
-            return std::move(values_[index]);
+            return Get(key);
         }
-
-        return std::nullopt;
     }
 
-    constexpr bool Contains(const Key key) const
+    constexpr const Value& Get(Key key) const
+    {
+        assert(Contains(key));
+        return ValueRef(Index(key));
+    }
+
+    constexpr Value& Get(Key key)
+    {
+        assert(Contains(key));
+        return ValueRef(Index(key));
+    }
+
+    constexpr std::optional<Value> Remove(Key key)
+        requires(std::is_move_constructible_v<Value> || std::is_copy_constructible_v<Value>)
+    {
+        if (!Contains(key)) return std::nullopt;
+        std::optional<Value> removed(std::in_place, std::move_if_noexcept(Get(key)));
+        DestroyValue(key);
+        return removed;
+    }
+
+    constexpr bool Contains(Key key) const
     {
         return keys_.Contains(key);
     }
@@ -172,21 +227,20 @@ public:
 
 private:
     static constexpr size_t kCapacity = Converter::GetElementsCount();
-    static constexpr size_t kBytesCountForValues = sizeof(Value) * kCapacity;
 
-    static constexpr size_t Index(const Key key)
+    static constexpr size_t Index(Key key)
     {
         return Converter::ConvertEnumToIndex(key);
     }
 
-    constexpr Value& ValueRef(const size_t index)
+    constexpr Value& ValueRef(size_t index)
     {
-        return values_[index];
+        return values_[index].value;
     }
 
-    constexpr const Value& ValueRef(const size_t index) const
+    constexpr const Value& ValueRef(size_t index) const
     {
-        return values_[index];
+        return values_[index].value;
     }
 
     template <typename It, typename This>
@@ -202,7 +256,25 @@ private:
     }
 
 private:
-    std::array<Value, kCapacity> values_{};
+    union Slot
+    {
+        constexpr Slot() noexcept {}
+        constexpr ~Slot() noexcept {}
+        Value value;
+    };
+
+    constexpr void DestroyValue(Key key)
+    {
+        std::destroy_at(std::addressof(Get(key)));
+        keys_.Remove(key);
+    }
+
+    constexpr void Clear()
+    {
+        for (auto [key, value] : *this) DestroyValue(key);
+    }
+
+    std::array<Slot, kCapacity> values_{};
     EnumSet<Key, Converter> keys_{};
 };
 }  // namespace ass

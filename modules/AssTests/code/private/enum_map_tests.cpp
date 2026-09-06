@@ -325,10 +325,8 @@ TEST(EnumMap, EmplaceReleasesStoredResources)
     std::weak_ptr<int> last_resource;
     {
         ass::EnumMap<ContinuousEnum, Value, ContinuousConverter> map;
-        std::weak_ptr<int> default_resource = map.Get(ContinuousEnum::A).resource;
 
         auto& inserted = map.Emplace(ContinuousEnum::A, std::make_shared<int>(42));
-        EXPECT_TRUE(default_resource.expired());
         EXPECT_EQ(&inserted, &map.Get(ContinuousEnum::A));
         EXPECT_EQ(*inserted.resource, 42);
         EXPECT_EQ(map.Size(), 1);
@@ -392,12 +390,7 @@ TEST(EnumMap, FailedEmplacePreservesMembership)
     EXPECT_EQ(map.Size(), 0);
     EXPECT_EQ(map.begin(), map.end());
 
-    EXPECT_THROW(map.Emplace(ContinuousEnum::A, 42, false, true), std::runtime_error);
-    EXPECT_FALSE(map.Contains(ContinuousEnum::A));
-    EXPECT_EQ(map.Size(), 0);
-    EXPECT_EQ(map.begin(), map.end());
-
-    map.Emplace(ContinuousEnum::A, 42);
+    EXPECT_NO_THROW(map.Emplace(ContinuousEnum::A, 42, false, true));
     EXPECT_THROW(map.Emplace(ContinuousEnum::A, 84, true), std::runtime_error);
     EXPECT_THROW(map.Emplace(ContinuousEnum::A, 84, false, true), std::runtime_error);
     EXPECT_TRUE(map.Contains(ContinuousEnum::A));
