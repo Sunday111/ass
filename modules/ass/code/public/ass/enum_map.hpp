@@ -139,16 +139,11 @@ public:
         return *value;
     }
 
-    constexpr Value& GetOrAdd(Key key)
-        requires std::is_default_constructible_v<Value>
+    template <typename... Args>
+        requires std::is_constructible_v<Value, Args...>
+    constexpr Value& GetOrAdd(Key key, Args&&... args)
     {
-        return Contains(key) ? Get(key) : Emplace(key);
-    }
-
-    constexpr Value& GetOrAdd(Key key, Value value)
-        requires(std::is_move_constructible_v<Value> || std::is_copy_constructible_v<Value>)
-    {
-        return Emplace(key, std::move_if_noexcept(value));
+        return Contains(key) ? Get(key) : Emplace(key, std::forward<Args>(args)...);
     }
 
     constexpr const Value& Get(Key key) const

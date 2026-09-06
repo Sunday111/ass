@@ -152,8 +152,11 @@ TEST(EnumMapLifetime, SupportsImmovableValuesAndFailedReplacement)
     int live = 0;
     {
         Map<Immovable> map;
-        map.Emplace(Key::A, live);
-        map.Emplace(Key::B, live);
+        map.GetOrAdd(Key::A, live);
+        EXPECT_NO_THROW(map.GetOrAdd(Key::A, live, true));
+        EXPECT_THROW(map.GetOrAdd(Key::B, live, true), std::runtime_error);
+        EXPECT_FALSE(map.Contains(Key::B));
+        map.GetOrAdd(Key::B, live);
         EXPECT_EQ(live, 2);
         EXPECT_THROW(map.Emplace(Key::A, live, true), std::runtime_error);
         EXPECT_FALSE(map.Contains(Key::A));
@@ -289,27 +292,31 @@ TEST(EnumMapLifetime, FailedRemovalKeepsTheSlotAlive)
     EXPECT_EQ(counts.constructed, counts.destroyed);
 }
 
-TEST(EnumMapLifetime, GetOrAddPreservesOrReplacesValues)
+TEST(EnumMapLifetime, GetOrAddConstructsOnlyMissingValues)
 {
     Map<int> map;
     EXPECT_EQ(map.GetOrAdd(Key::A), 0);
     map.Get(Key::A) = 42;
     EXPECT_EQ(map.GetOrAdd(Key::A), 42);
-    EXPECT_EQ(map.GetOrAdd(Key::A, 84), 84);
+    EXPECT_EQ(map.GetOrAdd(Key::A, 84), 42);
     EXPECT_EQ(map.GetOrAdd(Key::B), 0);
 
     Map<std::unique_ptr<int>> move_only;
     EXPECT_EQ(*move_only.GetOrAdd(Key::A, std::make_unique<int>(42)), 42);
-    EXPECT_EQ(*move_only.GetOrAdd(Key::A, std::make_unique<int>(84)), 84);
+    auto supplied_pointer = std::make_unique<int>(84);
+    EXPECT_EQ(*move_only.GetOrAdd(Key::A, std::move(supplied_pointer)), 42);
+    ASSERT_TRUE(supplied_pointer);
+    EXPECT_EQ(*supplied_pointer, 84);
     EXPECT_EQ(move_only.Size(), 1);
 
     Lifetimes counts;
     {
         Map<Value> non_default;
-        non_default.GetOrAdd(Key::C, Value(counts, 21));
+        non_default.GetOrAdd(Key::C, counts, 21);
         EXPECT_EQ(non_default.Get(Key::C).number, 21);
-        non_default.GetOrAdd(Key::C, Value(counts, 7));
-        EXPECT_EQ(non_default.Get(Key::C).number, 7);
+        non_default.GetOrAdd(Key::C, counts, 7);
+        EXPECT_EQ(non_default.Get(Key::C).number, 21);
+        EXPECT_EQ(counts.constructed, 1);
         EXPECT_EQ(counts.live, 1);
         Value supplied(counts, 42);
         EXPECT_EQ(non_default.GetOrAdd(Key::A, supplied).number, 42);
@@ -327,8 +334,9 @@ constexpr bool ConstantEvaluation()
         int number;
     };
     Map<NonDefault> map;
-    map.Emplace(Key::A, 42);
-    map.Emplace(Key::C, 84);
+    map.GetOrAdd(Key::A, 42);
+    if (map.GetOrAdd(Key::A, 7).number != 42) return false;
+    map.GetOrAdd(Key::C, 84);
     Map<NonDefault> copy(map);
     Map<NonDefault> moved(std::move(copy));
     if (copy.Size() != 0) return false;
