@@ -295,19 +295,26 @@ TEST(EnumMapLifetime, GetOrAddPreservesOrReplacesValues)
     EXPECT_EQ(map.GetOrAdd(Key::A), 0);
     map.Get(Key::A) = 42;
     EXPECT_EQ(map.GetOrAdd(Key::A), 42);
-    EXPECT_EQ(map.GetOrAdd(Key::A, std::nullopt), 42);
     EXPECT_EQ(map.GetOrAdd(Key::A, 84), 84);
-    EXPECT_EQ(map.GetOrAdd(Key::B, std::nullopt), 0);
+    EXPECT_EQ(map.GetOrAdd(Key::B), 0);
+
+    Map<std::unique_ptr<int>> move_only;
+    EXPECT_EQ(*move_only.GetOrAdd(Key::A, std::make_unique<int>(42)), 42);
+    EXPECT_EQ(*move_only.GetOrAdd(Key::A, std::make_unique<int>(84)), 84);
+    EXPECT_EQ(move_only.Size(), 1);
 
     Lifetimes counts;
     {
         Map<Value> non_default;
         non_default.GetOrAdd(Key::C, Value(counts, 21));
         EXPECT_EQ(non_default.Get(Key::C).number, 21);
-        EXPECT_EQ(non_default.GetOrAdd(Key::C, std::nullopt).number, 21);
         non_default.GetOrAdd(Key::C, Value(counts, 7));
         EXPECT_EQ(non_default.Get(Key::C).number, 7);
         EXPECT_EQ(counts.live, 1);
+        Value supplied(counts, 42);
+        EXPECT_EQ(non_default.GetOrAdd(Key::A, supplied).number, 42);
+        EXPECT_EQ(supplied.number, 42);
+        EXPECT_EQ(counts.live, 3);
     }
     EXPECT_EQ(counts.live, 0);
 }

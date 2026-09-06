@@ -145,17 +145,10 @@ public:
         return Contains(key) ? Get(key) : Emplace(key);
     }
 
-    constexpr Value& GetOrAdd(Key key, std::optional<Value> opt_value)
+    constexpr Value& GetOrAdd(Key key, Value value)
+        requires(std::is_move_constructible_v<Value> || std::is_copy_constructible_v<Value>)
     {
-        if (opt_value) return Emplace(key, std::move_if_noexcept(*opt_value));
-        if constexpr (std::is_default_constructible_v<Value>)
-        {
-            return GetOrAdd(key);
-        }
-        else
-        {
-            return Get(key);
-        }
+        return Emplace(key, std::move_if_noexcept(value));
     }
 
     constexpr const Value& Get(Key key) const

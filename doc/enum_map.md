@@ -13,7 +13,7 @@ Fixed-capacity map with enumeration keys. Storage is inline; only present keys h
 - `Emplace(key, args...)` constructs a missing value directly from the arguments and returns a reference. For an existing key, it assigns a newly constructed value when assignment is supported; otherwise it destroys and reconstructs the slot. In the latter case, arguments must not refer to the value being replaced or its members.
 - `Get(key)` returns a reference, with a const overload. The key must be present.
 - `GetOrAdd(key)` returns an existing value or default-constructs a missing one. This overload requires a default-constructible value type.
-- `GetOrAdd(key, optional_value)` inserts or replaces the value when the optional is engaged. An empty optional behaves like `GetOrAdd(key)` for default-constructible values; otherwise the key must already be present.
+- `GetOrAdd(key, value)` inserts or replaces the supplied value. It requires a move-constructible or copy-constructible value type, without requiring default construction.
 - `Remove(key)` returns the removed value in an optional, or an empty optional if absent. It destroys the stored value immediately after extracting it. The value type must be move-constructible or copy-constructible.
 - `Contains(key)`, `Size()`, and static `Capacity()` report membership, occupied slots, and maximum slots.
 - `begin()` and `end()` iterate over present keys in converter index order, exposing the key and a reference to its value. Const iteration is supported.
