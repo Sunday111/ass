@@ -302,15 +302,34 @@ private:
 
         if (GetSize() == 0) return;
 
+        const auto source_part = [&](size_t part_index) -> PurePart
+        {
+            constexpr size_t source_bits = Another::BitsPerPart();
+            const size_t first_bit = part_index * BitsPerPart();
+            if constexpr (BitsPerPart() <= source_bits)
+            {
+                return static_cast<PurePart>(another.GetPart(first_bit / source_bits) >> (first_bit % source_bits));
+            }
+            else
+            {
+                PurePart result = 0;
+                for (size_t offset = 0; offset < BitsPerPart() && offset < GetSize() - first_bit; offset += source_bits)
+                {
+                    result |= static_cast<PurePart>(another.GetPart((first_bit + offset) / source_bits)) << offset;
+                }
+                return result;
+            }
+        };
+
         const size_t last_used_part_index = GetLastUsedPartIndex();
         for (size_t part_index = 0; part_index != last_used_part_index; ++part_index)
         {
             auto& part = GetPart(part_index);
-            part = op(part, another.GetPart(part_index));
+            part = op(part, source_part(part_index));
         }
 
         auto& part = parts_[last_used_part_index];  // NOLINT
-        const auto& another_part = another.GetPart(last_used_part_index);
+        const auto another_part = source_part(last_used_part_index);
         const PurePart op_result = op(part, another_part);
 
         // Have to mask out unused bits (if any)
