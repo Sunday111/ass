@@ -1,4 +1,7 @@
+#include <algorithm>
 #include <array>
+#include <functional>
+#include <vector>
 
 #include "ass/bit_span.hpp"
 #include "gtest/gtest.h"
@@ -467,6 +470,112 @@ TEST(BitSpanTest, VectorToBitSpan)
         ASSERT_EQ(bit_span.GetCapacity(), 16);
         ASSERT_TRUE(test_bits(bit_span));
     }
+}
+
+TEST(BitSpanTest, BinaryOperationsAcrossWordWidths)
+{
+    auto make_parts = []<typename Part>(size_t count, uint64_t seed)
+    {
+        std::vector<Part> parts(count);
+        for (size_t index = 0; index != count; ++index)
+        {
+            parts[index] = static_cast<Part>(seed ^ (index * 0x9E3779B97F4A7C15ULL));
+        }
+        return parts;
+    };
+    auto check = [&]<typename DestinationPart, typename SourcePart>()
+    {
+        constexpr size_t destination_width = sizeof(DestinationPart) * 8;
+        constexpr size_t source_width = sizeof(SourcePart) * 8;
+        for (size_t size : {0U, 1U, 7U, 8U, 9U, 15U, 16U, 17U, 31U, 32U, 33U, 63U, 64U, 65U, 127U, 128U, 129U})
+        {
+            for (size_t destination_spare : {0U, 2U})
+            {
+                for (size_t source_spare : {0U, 2U})
+                {
+                    SCOPED_TRACE(
+                        ::testing::Message() << destination_width << " <- " << source_width << ", size=" << size
+                                             << ", spare=" << destination_spare << '/' << source_spare);
+                    auto destination = make_parts.template operator()<DestinationPart>(
+                        (size + destination_width - 1) / destination_width + destination_spare,
+                        0xA591D368C247BE0FULL);
+                    const auto initial = destination;
+                    const auto source = make_parts.template operator()<SourcePart>(
+                        (size + source_width - 1) / source_width + source_spare,
+                        0xC63A87D15BE924F0ULL);
+                    auto check_views = [&](auto destination_span, const auto& source_span)
+                    {
+                        auto check_operation = [&](auto apply, auto reference)
+                        {
+                            std::copy(initial.begin(), initial.end(), destination.begin());
+                            auto expected = initial;
+                            auto expected_span = ToBitSpan(std::span(expected), {.size = size});
+                            for (size_t bit = 0; bit != size; ++bit)
+                            {
+                                expected_span.Set(bit, reference(expected_span.Get(bit), source_span.Get(bit)));
+                            }
+                            apply(destination_span, source_span);
+                            EXPECT_EQ(destination, expected);
+                        };
+                        check_operation(
+                            [](auto target, const auto& operand)
+                            {
+                                target.AndAssign(operand);
+                            },
+                            std::bit_and<bool>{});
+                        check_operation(
+                            [](auto target, const auto& operand)
+                            {
+                                target.OrAssign(operand);
+                            },
+                            std::bit_or<bool>{});
+                        check_operation(
+                            [](auto target, const auto& operand)
+                            {
+                                target.XorAssign(operand);
+                            },
+                            std::bit_xor<bool>{});
+                    };
+                    check_views(
+                        ToBitSpan(std::span(destination), {.size = size}),
+                        ToBitSpan(std::span(source), {.size = size}));
+                    if (size == 65)
+                    {
+                        auto static_destination =
+                            MakeBitSpan<DestinationPart, {.size = 65}>(destination.data(), destination.size(), size);
+                        auto static_source =
+                            MakeBitSpan<const SourcePart, {.size = 65}>(source.data(), source.size(), size);
+                        check_views(static_destination, static_source);
+                        check_views(static_destination, ToBitSpan(std::span(source), {.size = size}));
+                        check_views(ToBitSpan(std::span(destination), {.size = size}), static_source);
+                    }
+                }
+            }
+        }
+    };
+    auto check_sources = [&]<typename DestinationPart, typename... SourceParts>(const std::tuple<SourceParts...>&)
+    {
+        (check.template operator()<DestinationPart, SourceParts>(), ...);
+    };
+    [&]<typename... Parts>(const std::tuple<Parts...>&)
+    {
+        (check_sources.template operator()<Parts>(AllPartTypes{}), ...);
+    }(AllPartTypes{});
+}
+
+TEST(BitSpanTest, BinaryOperationsWithConstSourceAndMixedExtents)
+{
+    std::array<uint16_t, 2> destination{0xFFFF, 0xAAAA};
+    constexpr std::array<uint16_t, 2> source{0x0100, 0xFFFF};
+    auto destination_span = ToBitSpan(destination, {.size = 17});
+    auto source_span = ToBitSpan<{.size = 17}>(source);
+
+    destination_span.AndAssign(source_span);
+    EXPECT_EQ(destination, (std::array<uint16_t, 2>{0x0100, 0xAAAA}));
+    destination_span.OrAssign(source_span);
+    EXPECT_EQ(destination, (std::array<uint16_t, 2>{0x0100, 0xAAAB}));
+    destination_span.XorAssign(source_span);
+    EXPECT_EQ(destination, (std::array<uint16_t, 2>{0, 0xAAAA}));
 }
 
 TEST(BitSpanTest, AndAssign)
